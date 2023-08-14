@@ -136,12 +136,9 @@ namespace DicomGenerator.Tests
         [TestMethod]
         public void GenerateSerialTime()
         {
-            //var seriasTime = new RangeSeriesDateTimeRule();
-
             var studyTime = new RangeSeriesDateTimeRule();
 
             var seriasTime = studyTime.Generate();
-
 
             Console.WriteLine(seriasTime);
         }
