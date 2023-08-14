@@ -1,0 +1,249 @@
+﻿<mah:MetroWindow x:Class="DicomGenerator.UI.Wpf.MainWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                 xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+                 xmlns:core="clr-namespace:DicomGenerator.Core;assembly=DicomGenerator.Core"
+                 xmlns:wpf="clr-namespace:DicomGenerator.UI.Wpf"
+                 d:DataContext="{d:DesignInstance Type=wpf:MainViewModel, IsDesignTimeCreatable=False}"
+                 mc:Ignorable="d"
+                 Icon="D:\Develop\dicomGenerator\DicomGenerator\UI\DicomGenerator.UI.Wpf\DicomGenerator.ico"
+                 Title="Generator Dicom File"
+                 Height="635"
+                 Width="897"
+                 ResizeMode="CanMinimize"
+                 WindowStyle="ThreeDBorderWindow"
+                 WindowStartupLocation="CenterScreen">
+
+    <!--<Window.DataContext>
+        <wpf:MainViewModel />
+    </Window.DataContext>-->
+
+    <Grid ShowGridLines="False">
+        
+        <Grid.Resources>
+            <!--<Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+                <Setter Property="Margin" Value="15,30" />
+            </Style>-->
+
+            <Style TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
+                <Setter Property="Height" Value="70"/>
+                <Setter Property="Width" Value="120"/>
+                <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Accent}"/>
+                <Setter Property="Margin" Value="5"/>
+            </Style>
+
+            <!--<Style x:Key="Styles.TextBlock.SuperMargin" TargetType="{x:Type TextBlock}"
+                   BasedOn="{StaticResource {x:Type TextBlock}}">
+                <Setter Property="Margin" Value="160,30" />            
+            </Style>-->
+
+        </Grid.Resources>
+
+        <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition />
+            <RowDefinition />
+            <RowDefinition />
+            <RowDefinition />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition />
+            <ColumnDefinition />
+            <ColumnDefinition />
+            <ColumnDefinition />
+            <ColumnDefinition />
+        </Grid.ColumnDefinitions>
+
+        
+        <Grid Grid.Row="0"
+              Grid.Column="1"
+              Grid.RowSpan="3"
+              Grid.ColumnSpan="3">
+
+            <StackPanel>
+
+                <Grid>
+
+                    <TextBlock Name="PatientCount"
+                       Text="Patient count">
+                    </TextBlock>
+
+                    <TextBox Name="SetPatientCount"
+                     Text= "{Binding SetPatientsCount, UpdateSourceTrigger=PropertyChanged}">
+                    </TextBox>
+
+                </Grid>
+
+                <Grid>
+
+                    <TextBlock Name="StudyCount"
+                       Text="Study count">
+                    </TextBlock>
+
+                    <TextBox Name="SetStudiesCount"
+                     Text="{Binding SetStudiesCount, UpdateSourceTrigger=PropertyChanged}">
+                    </TextBox>
+
+                </Grid>
+
+                <Grid>
+
+                    <TextBlock Name="SeriesCount"
+                       Text="Series count">
+                    </TextBlock>
+
+                    <TextBox Name="SetSeriesCount" 
+                        Text="{Binding SetSeriesCount, UpdateSourceTrigger=PropertyChanged}">
+                    </TextBox>
+
+                </Grid>
+
+                <Grid>
+
+                    <TextBlock Name="Coding"
+                       Text="Coding">
+                    </TextBlock>
+
+                    <ComboBox Name="SelectEncoding"
+                      
+                      Background="{DynamicResource MahApps.Brushes.Button.Border}"
+                      IsEditable="False"
+                      ItemsSource="{Binding Encodings}"
+                      SelectedItem="{Binding ChooseCod,Mode=TwoWay}">
+
+                    </ComboBox>
+
+                </Grid>
+
+            </StackPanel>
+
+        </Grid>
+
+        <Border Grid.Row="3"
+                Grid.Column="0"
+                Grid.ColumnSpan="5"
+                BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
+                BorderThickness="5 "
+                Margin="5">
+
+            <StackPanel 
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Center">
+
+                <TextBlock Name="Mg"
+                           Text="Sop MG">
+                </TextBlock>
+
+                <TextBox Name="SopMgCount"
+                         Text="{Binding SopMgCount, UpdateSourceTrigger=PropertyChanged}">
+                </TextBox>
+
+                <TextBlock Name="Dx"
+                           Text="Sop DX">
+                </TextBlock>
+
+                <TextBox Name="SopDxCount"
+                         Text="{Binding SopDxCount, UpdateSourceTrigger=PropertyChanged}">
+                </TextBox>
+
+                <TextBlock Name="Sr"
+                           Text="Sop SR">
+                </TextBlock>
+
+                <TextBox Name="SopSrCount"
+                         Text="{Binding SopSrCount, UpdateSourceTrigger=PropertyChanged}">
+                </TextBox>
+
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="4"
+              Grid.Column="0"
+              Grid.ColumnSpan="5">
+
+            <StackPanel 
+                            Margin="5"
+                            Background="{DynamicResource MahApps.Brushes.Accent}">
+
+                <TextBox Name="UpdateText"
+                         MinWidth="875"
+                         MinHeight="80"
+                         FontSize="22"
+                         Text="{Binding UpdateText, UpdateSourceTrigger= PropertyChanged}"
+                         IsReadOnly="True">
+                </TextBox>
+
+            </StackPanel>
+
+        </Grid>
+
+        <Grid Grid.Row="5"
+              Grid.Column="1"
+              Grid.ColumnSpan="3">
+
+            <Button Name="CleanUpButton"
+                    Content="Clean Up"
+                    HorizontalAlignment="Left"
+                    Command="{Binding CleanUp_Click}">
+            </Button>
+
+            <Button Name="GenerateButton"
+                    Content="Generate"
+                    HorizontalAlignment="Right"
+                    Command="{Binding GenerateFile_Click}">
+            </Button>
+
+        </Grid>
+
+        <!--<Grid
+            Grid.Column="0"
+            Grid.Row="0"
+            Grid.RowSpan="6"
+            Grid.ColumnSpan="5"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+           
+            Visibility="{Binding IsVisible}">
+
+            <mah:ProgressRing Height="100"
+                              Width="100"
+                              Foreground="{DynamicResource MahApps.Brushes.AccentBase}"
+                              
+                              />
+        </Grid>-->
+
+        <Grid
+            Grid.Column="0"
+            Grid.Row="0"
+            Grid.RowSpan="6"
+            Grid.ColumnSpan="5"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Height="600"
+            Width="900"
+
+            Visibility="{Binding IsVisible}">
+
+            <Border
+                    Background="White"
+                    Opacity=".7">
+
+                  
+                      <mah:ProgressRing Height="100"
+                                        Width="100"
+                                        Foreground="{DynamicResource MahApps.Brushes.AccentBase}"/>
+               
+            </Border>
+            
+
+            
+        </Grid>
+
+    </Grid>
+
+
+</mah:MetroWindow>
