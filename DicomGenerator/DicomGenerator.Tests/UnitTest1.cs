@@ -1,12 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
 using System.Text;
 using DicomGenerator.Core;
-using DicomGenerator.Core.GeneratorRules._3_Series;
-using DicomGenerator.Core.GeneratorRules.Series;
+using DicomGenerator.Core.GeneratorRules;
 using DicomGenerator.Core.GeneratorRules.Patient;
+using DicomGenerator.Core.GeneratorRules.Series;
 using DicomGenerator.Core.GeneratorRules.Sop;
 using DicomGenerator.Core.GeneratorRules.Study;
 using FellowOakDicom;
@@ -24,7 +22,7 @@ namespace DicomGenerator.Tests
                     new SeriesLateralityRule(),
                     Modality.Dx,
                     new SeriesNumberRule(),
-                    new RangeSeriesDateTimeRule(),
+                    new RangeSeriesDateTimeRule(DateTime.MinValue, DateTime.MaxValue),
                     new SopGeneratorParameters(
                         new SopClassUidRule(new SopClassFactory(@"D:\Develop\DicomGeneratorTestData\")))
                     {
@@ -39,7 +37,7 @@ namespace DicomGenerator.Tests
                     new SeriesLateralityRule(),
                     Modality.Mg,
                     new SeriesNumberRule(),
-                    new RangeSeriesDateTimeRule(),
+                    new RangeSeriesDateTimeRule(DateTime.MinValue, DateTime.MaxValue),
                     new SopGeneratorParameters(
                         new SopClassUidRule(new SopClassFactory(@"D:\Develop\DicomGeneratorTestData\")))
                     {
@@ -54,7 +52,7 @@ namespace DicomGenerator.Tests
                     new SeriesLateralityRule(),
                     Modality.Sr,
                     new SeriesNumberRule(),
-                    new RangeSeriesDateTimeRule(),
+                    new RangeSeriesDateTimeRule(DateTime.MinValue, DateTime.MaxValue),
                     new SopGeneratorParameters(
                             new SopClassUidRule(new SopClassFactory(@"D:\Develop\DicomGeneratorTestData\")))
                     {
@@ -76,10 +74,13 @@ namespace DicomGenerator.Tests
 
             var patientParameters = new PatientGeneratorParameters(
                 new DicomEncodingRule(Encoding.UTF8),
-                new RandomNameRule(),
-                new OrderedIdRule(),
-                new RandomSexRule(),
-                new RandomPatientBirthDateRule(new DateTime()),
+                new RandomNameRule("Stepler", "Geka", "Olegovich"),
+                new OrderedIdRule("Tester"),
+                new RandomSexRule("M"), 
+                new PatientAddressRule("Minsk"),
+                new PatientCommentsRule("Zdorov"),
+                new PatientTelephoneRule(654564),
+                new RandomPatientBirthDateRule(new DateTime(), true),
                 new List<StudyGeneratorParameters>{studyParameters}
             )
             {
@@ -103,7 +104,7 @@ namespace DicomGenerator.Tests
         [TestMethod]
         public void GenerateName()
         {
-            var name = new RandomNameRule();
+            var name = new RandomNameRule("Stepler", "Geka", "Olegovich");
 
             var result = name.Generate();
 
@@ -136,9 +137,12 @@ namespace DicomGenerator.Tests
         [TestMethod]
         public void GenerateSerialTime()
         {
-            var studyTime = new RangeSeriesDateTimeRule();
+            //var seriasTime = new RangeSeriesDateTimeRule();
+
+            var studyTime = new RangeSeriesDateTimeRule(DateTime.MinValue, DateTime.MaxValue);
 
             var seriasTime = studyTime.Generate();
+
 
             Console.WriteLine(seriasTime);
         }
