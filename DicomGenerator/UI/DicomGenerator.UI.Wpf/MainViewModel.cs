@@ -3,23 +3,26 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
 using DicomGenerator.Core;
-using DicomGenerator.Core.GeneratorRules._3_Series;
+using DicomGenerator.Core.GeneratorRules;
 using DicomGenerator.Core.GeneratorRules.Patient;
 using DicomGenerator.Core.GeneratorRules.Series;
 using DicomGenerator.Core.GeneratorRules.Sop;
 using DicomGenerator.Core.GeneratorRules.Study;
 using FellowOakDicom;
+using FellowOakDicom.Network;
+using FellowOakDicom.Network.Client;
 using Prism.Commands;
-using Prism.Mvvm;
 
 
 namespace DicomGenerator.UI.Wpf
 {
-    public class MainViewModel : BindableBase
+    partial class MainViewModel : ObservableObject
     {
         private PatientGeneratorParameters _patientParameters;
         private PatientGenerator _patientGenerator;
@@ -44,6 +47,8 @@ namespace DicomGenerator.UI.Wpf
         private IGeneratorRule<string> _seriesLaterality;
         private IGeneratorRule<string, int> _seriesNumber;
         private IGeneratorRule<DateTime> _seriesTime;
+        private CancellationTokenSource _cancellationTokenSource;
+        private DicomEncodingRule _defaultEncoding = new DicomEncodingRule(Encoding.UTF8);
 
         private int _patientsCount;
         private int _studiesCount;
@@ -57,145 +62,205 @@ namespace DicomGenerator.UI.Wpf
         public int sumCounts;
 
         // Path to TestData and Save File in Debug
-        //private readonly string _pathToSave = @"D:\Develop\DicomGeneratorTestData\TestResult";
+        private readonly string _pathToSave = @"D:\Develop\DicomGeneratorTestData\TestResult";
 
-        //private readonly string _pathToTestData = @"D:\Develop\DicomGeneratorTestData\";
+        private readonly string _pathToTestData = @"D:\Develop\DicomGeneratorTestData\";
 
 
         // Path to TestData and Save File after Install
-        private readonly string _pathToSave = @"D:\DicomGeneratorResult";
+        //private readonly string _pathToSave = @"D:\DicomGeneratorResult";
 
-        private readonly string _pathToTestData = @"C:\Program Files (x86)\DicomGenerator\DicomGeneratorTestData\";
+        //private readonly string _pathToTestData = @"C:\Program Files (x86)\DicomGenerator\DicomGeneratorTestData\";
 
 
         public MainViewModel()
         {
-            var defaultEncoding = new DicomEncodingRule(Encoding.UTF8);
-
             Encodings = new ObservableCollection<DicomEncodingRule>
             {
                 new DicomEncodingRule(Encoding.Latin1),
                 new DicomEncodingRule(Encoding.ASCII),
-                defaultEncoding
+                _defaultEncoding
             };
 
-            ChooseCod = defaultEncoding;
+            ChooseCod = _defaultEncoding;
 
             IsVisible = Visibility.Collapsed;
+
+            InitialiseProperties();
+            InitialiseServerConnectingProperty();
         }
 
 
-        public int SetPatientsCount
-        {
-            get
-            {
-                return _patientsCount;
-            }
-            set
-            {
-                SetProperty(ref _patientsCount, value);
-            }
-        }
 
-        public int SetStudiesCount
-        {
-            get
-            {
-                return _studiesCount;
-            }
-            set
-            {
-                SetProperty(ref _studiesCount, value);
-            }
-        }
+        [ObservableProperty]
+        public partial int SetPatientsCount {  get; set; }
 
-        public int SetSeriesCount
-        {
-            get
-            {
-                return _seriesCount;
-            }
-            set
-            {
-                SetProperty(ref _seriesCount, value);
-            }
-        }
+        [ObservableProperty]
+        public partial int SetStudiesCount { get; set; }
 
-        public int SopSrCount
-        {
-            get
-            {
-                return _sopSrCount;
-            }
-            set
-            {
-                SetProperty(ref _sopSrCount, value);
-            }
-        }
+        [ObservableProperty]
+        public partial int SetSeriesCount { get; set; }
 
-        public int SopDxCount
-        {
-            get
-            {
-                return _sopDxCount;
-            }
-            set
-            {
-                SetProperty(ref _sopDxCount, value);
-            }
-        }
+        [ObservableProperty]
+        public partial int SopSrCount { get; set; }
 
-        public int SopMgCount
-        {
-            get
-            {
-                return _sopMgCount;
-            }
-            set
-            {
-                SetProperty(ref _sopMgCount, value);
-            }
-        }
+        [ObservableProperty]
+        public partial int SopDxCount { get; set; }
 
+        [ObservableProperty]
+        public partial int SopMgCount { get; set; }
 
-        public DicomEncodingRule ChooseCod
-        {
-            get
-            {
-                return _encoding;
-            }
-            set
-            {
-                SetProperty(ref _encoding, value);
-            }
-        }
+        [ObservableProperty]
+        public partial DicomEncodingRule ChooseCod { get; set; }
 
         public ObservableCollection<DicomEncodingRule> Encodings { get; }
 
+        [ObservableProperty]
+        public partial string UpdateText { get; set; }
 
-        private string _updateText;
+        [ObservableProperty]
+        public partial Visibility IsVisible { get; set; }
 
-        public string UpdateText
+        [ObservableProperty]
+        public partial string CreateIdPatient { get; set; }
+
+        [ObservableProperty]
+        public partial string CreateLastNamePatient { get; set; }
+
+        [ObservableProperty]
+        public partial string CreateNamePatient { get; set; }
+
+        [ObservableProperty]
+        public partial string CreateMiddleNamePatient { get; set; }
+
+        [ObservableProperty]
+        public partial DateTime CreateBirthDatePatient { get; set; }
+
+        public bool _useBirthDatePatient;
+        public bool UseBirthDatePatient 
         {
-            get
-            {
-                return _updateText;
-            }
+            get => _useBirthDatePatient;
             set
             {
-                SetProperty(ref _updateText, value);
+                UsePeriodBirthDatePatient = _useBirthDatePatient;
+                SetProperty(ref _useBirthDatePatient, value);
             }
         }
 
+        [ObservableProperty]
+        public partial DateTime CreatePeriodBirthDatePatient { get; set; }
 
-        public Visibility IsVisible
+        [ObservableProperty]
+        public partial DateTime SelectedBirthDatePatient { get; set; }
+
+        [ObservableProperty]
+        public partial bool UsePeriodBirthDatePatient { get; set; }
+
+        [ObservableProperty]
+        public partial List<string> CreateGenderPatient { get; set; }
+
+        private string? _gender;
+        public string? SelectedGender
         {
-            get => _isVisible;
+            get => _gender;
 
             set
             {
-                SetProperty(ref _isVisible, value);
+                if (value == CreateGenderPatient[0])
+                {
+                    value = "M";
+                }
+                else if (value == CreateGenderPatient[1])
+                {
+                    value = "F";
+                }
+                else if (value == CreateGenderPatient[2])
+                {
+                    value = "O";
+                }
+                else if (value == CreateGenderPatient[3])
+                {
+                    value = null;
+                }
+                SetProperty(ref _gender, value);
             }
+        }
+
+        [ObservableProperty]
+        public partial string CreateAdressPatient { get; set; }
+
+        [ObservableProperty]
+        public partial int CreatePhonePatient { get; set; }
+
+        [ObservableProperty]
+        public partial string CreateWorkPlasePatient { get; set; }
+
+        [ObservableProperty]
+        public partial string CreateInfoPatient { get; set; }
+
+        [ObservableProperty]
+        public partial DateTime CreateStartDatePatient { get; set; }
+
+        [ObservableProperty]
+        public partial DateTime CreateEndDatePatient { get; set; }
+
+        [ObservableProperty]
+        public partial DateTime CreateStartTimePatient { get; set; }
+
+        [ObservableProperty]
+        public partial DateTime CreateEndTimePatient { get; set; }
+
+        [ObservableProperty]
+        public partial string CreateServerIp { get; set; }
+
+        [ObservableProperty]
+        public partial int CreateServerPort { get; set; }
+
+        [ObservableProperty]
+        public partial string CreateCallingAe { get; set; }
+
+        [ObservableProperty]
+        public partial string CreateCalledAe { get; set; }
+
+        [ObservableProperty]
+        public partial string CreateSourceFolderPath { get; set; }
+
+        [ObservableProperty]
+        public partial string ServerOutputText { get; set; }
+
+
+
+
+
+        private void InitialiseProperties()
+        {
+            CreateGenderPatient = new List<string> { "Man", "Female", "Other", "string - Empty" };
+            UseBirthDatePatient = false;
+            UsePeriodBirthDatePatient = !UseBirthDatePatient;
+            CreateBirthDatePatient = DateTime.Now;
+            CreatePeriodBirthDatePatient = DateTime.Now.AddYears(-50);
+            CreateStartDatePatient = DateTime.Now.AddMonths(-3);
+            CreateEndDatePatient = DateTime.Now;
+            CreateEndTimePatient = DateTime.Now;
+        }
+
+        private void InitialiseServerConnectingProperty()
+        {
+            CreateServerIp = "127.0.0.1";
+            CreateServerPort = 55100;
+            CreateCallingAe = "UniExpert";
+            CreateCalledAe = "LocalScp";
+            CreateSourceFolderPath = "D:\\DicomGeneratorResult\\";
+        }
+
+        private DateTime SelectedPatientBirthDate()
+        {
+            if (UseBirthDatePatient)
+            {
+                return CreateBirthDatePatient;
+            }
+
+            return CreatePeriodBirthDatePatient;
         }
 
 
@@ -213,7 +278,7 @@ namespace DicomGenerator.UI.Wpf
               new SeriesLateralityRule(),
               Modality.Dx,
               new SeriesNumberRule(),
-              new RangeSeriesDateTimeRule(),
+              new RangeSeriesDateTimeRule(CreateStartTimePatient, CreateEndTimePatient),
               new SopGeneratorParameters(
                   new SopClassUidRule(new SopClassFactory(_pathToTestData)))
               {
@@ -226,7 +291,7 @@ namespace DicomGenerator.UI.Wpf
                     new SeriesLateralityRule(),
                     Modality.Mg,
                     new SeriesNumberRule(),
-                    new RangeSeriesDateTimeRule(),
+                    new RangeSeriesDateTimeRule(CreateStartTimePatient, CreateEndTimePatient),
                     new SopGeneratorParameters(
                         new SopClassUidRule(new SopClassFactory(_pathToTestData)))
                     {
@@ -238,7 +303,7 @@ namespace DicomGenerator.UI.Wpf
                     new SeriesLateralityRule(),
                     Modality.Sr,
                     new SeriesNumberRule(),
-                    new RangeSeriesDateTimeRule(),
+                    new RangeSeriesDateTimeRule(CreateStartTimePatient, CreateEndTimePatient),
                     new SopGeneratorParameters(
                         new SopClassUidRule(new SopClassFactory(_pathToTestData)))
                     {
@@ -248,16 +313,19 @@ namespace DicomGenerator.UI.Wpf
 
 
                 _studyParameters = new StudyGeneratorParameters(
-                    new RangeStudyDateTimeRule(DateTime.Now, DateTime.Now.AddHours(10)),
+                    new RangeStudyDateTimeRule(CreateStartDatePatient, CreateEndDatePatient),
                     new RandomAccessionNumberRule(),
                     new List<SerieGeneratorParameters>() { _serieParametersDx, _serieParametersMg, _serieParametersSr });
 
                 _patientParameters = new PatientGeneratorParameters(
                     ChooseCod,
-                    new RandomNameRule(),
-                    new OrderedIdRule(),
-                    new RandomSexRule(),
-                    new RandomPatientBirthDateRule(DateTime.Now),
+                    new RandomNameRule(CreateLastNamePatient, CreateNamePatient, CreateMiddleNamePatient),                    
+                    new OrderedIdRule(CreateIdPatient),
+                    new RandomSexRule(SelectedGender),
+                    new PatientAddressRule(CreateAdressPatient),
+                    new PatientCommentsRule(CreateInfoPatient),
+                    new PatientTelephoneRule(CreatePhonePatient),
+                    new RandomPatientBirthDateRule(SelectedPatientBirthDate(), UsePeriodBirthDatePatient),
                     new List<StudyGeneratorParameters>() { _studyParameters }
                 )
                 {
@@ -266,7 +334,6 @@ namespace DicomGenerator.UI.Wpf
                     PatientsCount = SetPatientsCount
                 };
 
-
                 _patientParameters.PatientsCount = SetPatientsCount;
                 _studyParameters.StudiesCount = SetStudiesCount;
                 _serieParametersDx.SeriesCount = SetSeriesCount;
@@ -274,7 +341,6 @@ namespace DicomGenerator.UI.Wpf
                 _serieParametersSr.SeriesCount = SetSeriesCount;
 
                 sumCounts = SetPatientsCount * (SetStudiesCount * (SetSeriesCount * (SopDxCount + SopMgCount + SopSrCount)));
-
 
                 _patientGenerator = new PatientGenerator();
 
@@ -310,8 +376,6 @@ namespace DicomGenerator.UI.Wpf
                 IsVisible = Visibility.Collapsed;
 
             });
-
-          
         }
 
 
@@ -321,24 +385,98 @@ namespace DicomGenerator.UI.Wpf
         private void PerformCleanUp_Click()
         {
             SetPatientsCount = 0;
-
             SetStudiesCount = 0;
-
             SetSeriesCount = 0;
-
             SopMgCount = 0;
-
             SopDxCount = 0;
-
             SopSrCount = 0;
 
-            UpdateText = "All fields are cleared !!!";
+            CreateIdPatient = string.Empty;
+            CreateLastNamePatient = string.Empty;
+            CreateNamePatient = string.Empty;
+            CreateMiddleNamePatient = string.Empty;
+            SelectedGender = CreateGenderPatient[3];
 
+            UseBirthDatePatient = false;
+            CreateBirthDatePatient = DateTime.Now;
+            CreatePeriodBirthDatePatient = DateTime.Now.AddYears(-50);
+
+            CreateAdressPatient = string.Empty;
+            CreatePhonePatient = 0;
+            CreateInfoPatient = string.Empty;
+
+            CreateStartDatePatient = DateTime.Now.AddMonths(-3);
+            CreateEndDatePatient = DateTime.Now;
+            CreateStartTimePatient = DateTime.Now;
+            CreateStartTimePatient = DateTime.Parse("00:00");
+            CreateEndTimePatient = DateTime.Now;
+
+            ChooseCod = _defaultEncoding;
+
+            UpdateText = "All fields are cleared !!!";
         }
 
+        private DelegateCommand sendDicomImageAsync;
+        public ICommand SendDicomImage => sendDicomImageAsync = new DelegateCommand(PerformSendDicomImage);
 
+        private void PerformSendDicomImage()
+        {
+            SendDicomImageAsync(CreateServerIp, CreateServerPort, CreateSourceFolderPath, CreateCallingAe, CreateCalledAe);
+        }
 
+        private async Task SendDicomImageAsync(string serverIp, int serverPort, string sourceFolderPath, string callingAe, string calledAe)
+        {
+            _cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = _cancellationTokenSource.Token;
 
+            var options = new DicomClientOptions { AssociationRequestTimeoutInMs = 10000 };
+
+            var client = DicomClientFactory.Create(serverIp, serverPort, false, callingAe, calledAe);
+
+            var dicomFiles = Directory.GetFiles(sourceFolderPath, "*.*");
+
+            var fileCount = 0;
+
+            foreach (var filePath in dicomFiles)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    ServerOutputText = "Отправка файлов отменена пользователем.";
+                    break;
+                }
+
+                var dicomFile = DicomFile.Open(filePath);
+                var storeRequest = new DicomCStoreRequest(dicomFile);
+
+                await client.AddRequestAsync(storeRequest);
+
+                fileCount++;                
+
+                try
+                {
+                    await client.SendAsync(cancellationMode: DicomClientCancellationMode.ImmediatelyReleaseAssociation);
+                    ServerOutputText = $"DICOM файл {fileCount} отправлен успешно.";
+                }
+                catch (OperationCanceledException)
+                {
+                    ServerOutputText = $"Отправка DICOM файла {fileCount} была отменена.";
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    ServerOutputText = $"Ошибка: {ex.Message}";
+                    return;
+                }
+            }
+        }
+
+        private DelegateCommand cancelSending;
+        public ICommand CancaelSendingImage => cancelSending = new DelegateCommand(PerformCancaelSendingImage);
+
+        private void PerformCancaelSendingImage()
+        {
+            _cancellationTokenSource?.Cancel();
+        }
 
 
 
