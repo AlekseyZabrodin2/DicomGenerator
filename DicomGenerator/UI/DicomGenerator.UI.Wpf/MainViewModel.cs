@@ -48,17 +48,8 @@ namespace DicomGenerator.UI.Wpf
         private IGeneratorRule<string, int> _seriesNumber;
         private IGeneratorRule<DateTime> _seriesTime;
         private CancellationTokenSource _cancellationTokenSource;
-        private DicomEncodingRule _defaultEncoding = new DicomEncodingRule(Encoding.UTF8);
-
-        private int _patientsCount;
-        private int _studiesCount;
-        private int _seriesCount;
-        private int _sopDxCount;
-        private int _sopMgCount;
-        private int _sopSrCount;
-
+        private DicomEncodingRule _defaultEncoding = new DicomEncodingRule(Encoding.UTF8);                
         private Visibility _isVisible;
-
         public int sumCounts;
 
         // Path to TestData and Save File in Debug
