@@ -1,5 +1,4 @@
 ﻿using System;
-using DicomGenerator.Core.GeneratorRules.Series;
 
 namespace DicomGenerator.Core.GeneratorRules.Study
 {
@@ -24,31 +23,13 @@ namespace DicomGenerator.Core.GeneratorRules.Study
         {
             var random = new Random();
 
-            //var timeDiff = (int)(MaximumDateTime - MinimumDateTime).TotalDays;
+            var daysDiff = (int)(MaximumDateTime - MinimumDateTime).TotalDays;
 
-            //var days = random.Next(0, timeDiff);
+            var days = random.Next(0, daysDiff);
 
-            //var dateTime = MinimumDateTime.AddDays(days).AddHours(random.Next(0, 24)).AddMinutes(random.Next(0, 60));
+            var dateTime = MinimumDateTime.AddDays(days).AddHours(random.Next(0, 24)).AddMinutes(random.Next(0, 60));
 
-            //return dateTime;
-
-            DateTime nowDate = DateTime.Today.AddYears(1);
-
-           
-            int rndYear = random.Next(2020, nowDate.Year);
-            int rndMonth = random.Next(1, 12);
-            int rndDay = random.Next(1, 28);
-            int rndHours = random.Next(0, 24);
-            int rndMinute = random.Next(0, 60);
-            int rndSecond = random.Next(0, 60);
-
-            var studyDate = new DateTime(rndYear, rndMonth, rndDay, rndHours, rndMinute, rndSecond);
-
-            
-
-            return studyDate;
-
-
+            return dateTime;
         }
 
     }
