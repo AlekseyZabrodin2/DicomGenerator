@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using DicomGenerator.Core.GeneratorRules.Sop;
-using DicomGenerator.Core.GeneratorRules.Study;
+﻿using System.Collections.Generic;
+using DicomGenerator.Core.GeneratorRules.Series;
 using FellowOakDicom;
 
 namespace DicomGenerator.Core
@@ -44,6 +42,10 @@ namespace DicomGenerator.Core
             dataset.AddOrUpdate(DicomTag.SeriesNumber, serieGeneratorParameters.SeriesNumber.Generate(seriesCount));
             dataset.AddOrUpdate(DicomTag.SeriesInstanceUID, UidGenerator.GenerateSeriesUid());
             dataset.AddOrUpdate(DicomTag.SeriesTime, serieGeneratorParameters.SeriesTime.Generate());
+            dataset.AddOrUpdate(DicomTag.AcquisitionTime, serieGeneratorParameters.SeriesTime.Generate());
+
+            var effectiveDoseTag = new DicomTag(0x0031, 0x0201);
+            dataset.AddOrUpdate(new DicomDecimalString(effectiveDoseTag, EntranceDoseRandom.GenerateDose()));
         }
 
         private void CreateSeriesModuleOptional(DicomDataset dataset, int seriesCount, SerieGeneratorParameters serieGeneratorParameters)

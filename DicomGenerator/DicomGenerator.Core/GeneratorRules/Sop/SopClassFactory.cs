@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using FellowOakDicom;
-using FellowOakDicom.StructuredReport;
 
 namespace DicomGenerator.Core.GeneratorRules.Sop
 {
