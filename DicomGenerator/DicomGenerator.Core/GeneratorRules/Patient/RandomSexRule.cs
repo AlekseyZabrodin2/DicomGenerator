@@ -1,25 +1,42 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DicomGenerator.Core.GeneratorRules.Patient
 {
     public sealed class RandomSexRule : IGeneratorRule<string>
     {
-        private static IDictionary<int, string> _patientSex = new Dictionary<int, string>
+        public RandomSexRule( string getGender)
         {
-            {0, "M"},
-            {1, "F"},
-            {2, "O"},
-        };
+            SetGender = getGender;
+        }
+
+        public string SetGender { get; }
+
+        private static IList<string> _patientSex = new List<string> { "M", "F", "O" };
 
         public string Generate()
         {
             var random = new Random();
 
-            return _patientSex[random.Next(0, _patientSex.Count)];
+            if (SetGender != null)
+            {
+                if (SetGender == "M")
+                {
+                    return _patientSex[0];
+                }
+                else if (SetGender == "F")
+                {
+                    return _patientSex[1];
+                }
+                else if (SetGender == "O")
+                {
+                    return _patientSex[2];
+                }
+            }
+
+            var selectGender = _patientSex[random.Next(0, _patientSex.Count)];
+
+            return selectGender;
         }
     }
 }

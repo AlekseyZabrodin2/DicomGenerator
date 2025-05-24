@@ -1,35 +1,33 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DicomGenerator.Core.GeneratorRules.Patient
 {
     public sealed class RandomPatientBirthDateRule : IGeneratorRule<DateTime>
     {
-        public RandomPatientBirthDateRule(DateTime birthDate)
+        public RandomPatientBirthDateRule(DateTime birthDate, bool useRandomDate)
         {
             BirthDate = birthDate;
+            UseRandomDate = useRandomDate;
         }
         
         public DateTime BirthDate { get; }
+        public bool UseRandomDate { get; }
 
         public DateTime Generate()
         {
             var random = new Random();
 
-            DateTime nowDate = DateTime.Now;
+            if (UseRandomDate)
+            {
+                int rndYear = random.Next(BirthDate.Year, DateTime.Now.Year);
+                int rndMonth = random.Next(1, 12);
+                int rndDay = random.Next(1, DateTime.DaysInMonth(rndYear, rndMonth));
 
-            int rndYear = random.Next(1950, nowDate.Year);
-            int rndMonth = random.Next(1, 12);
-            int rndDay = random.Next(1, 28);
+                var birthDate = new DateTime(rndYear, rndMonth, rndDay);
+                return birthDate;
+            }            
 
-            var birthDate = new DateTime(rndYear,rndMonth,rndDay);
-
-            return birthDate;
-
-
+            return BirthDate;
         }
     }
 }

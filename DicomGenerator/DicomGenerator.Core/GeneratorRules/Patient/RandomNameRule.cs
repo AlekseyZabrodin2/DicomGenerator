@@ -1,10 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace DicomGenerator.Core.GeneratorRules.Patient
 {
     public sealed class RandomNameRule : IGeneratorRule<string>
     {
+        public RandomNameRule(string lastName, string patientName, string middleName)
+        {
+            GetPatientName = $"{lastName}^{patientName}^{middleName}";
+        }
+
+
         private static readonly IDictionary<int, string> _russianName = new Dictionary<int, string>
         {
             {0, "Андрей"},
@@ -89,11 +96,16 @@ namespace DicomGenerator.Core.GeneratorRules.Patient
             {9, "Akopyan"}
         };
         
-        public bool IsRussian { get; set; }
+        public string GetPatientName { get;  }
 
         public string Generate()
         {
             var random = new Random();
+
+            if (!string.IsNullOrWhiteSpace(Regex.Replace(GetPatientName, @"\^+", "")))
+            {
+                return GetPatientName;
+            }
             
             //Russian Patient
             var rusName = _russianName[random.Next(0, _russianName.Count)];
@@ -102,7 +114,7 @@ namespace DicomGenerator.Core.GeneratorRules.Patient
 
             var rusSecondName = _russianSecondname[random.Next(0, _russianSecondname.Count)];
 
-            var rusPatient = $"{rusSecondName} {rusName} {rusMiddleName}";
+            var rusPatient = $"{rusSecondName}^{rusName}^{rusMiddleName}";
 
             //Latin Patient
             var latinName = _latinName[random.Next(0, _latinName.Count)];
@@ -111,7 +123,7 @@ namespace DicomGenerator.Core.GeneratorRules.Patient
 
             var latinSecondName = _latinSecondname[random.Next(0, _latinSecondname.Count)];
 
-            var latinPatient = $"{latinSecondName} {latinName} {latinMiddleName}";
+            var latinPatient = $"{latinSecondName}^{latinName}^{latinMiddleName}";
 
             //Return result
             string[] array = { rusPatient, latinPatient };
