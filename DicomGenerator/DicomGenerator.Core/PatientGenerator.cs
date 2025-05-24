@@ -46,6 +46,9 @@ namespace DicomGenerator.Core
             dataset.AddOrUpdate(DicomTag.PatientID, patientGeneratorParameters.IdRule.Generate(patientIndex));
             dataset.AddOrUpdate(DicomTag.PatientSex, patientGeneratorParameters.Sex.Generate());
             dataset.AddOrUpdate(DicomTag.PatientBirthDate, patientGeneratorParameters.PatientBirthDate.Generate());
+            dataset.AddOrUpdate(DicomTag.PatientAddress, patientGeneratorParameters.PatientRandomAddress.Generate());
+            dataset.AddOrUpdate(DicomTag.PatientComments, patientGeneratorParameters.PatientRandomComments.Generate());
+            dataset.AddOrUpdate(DicomTag.PatientTelephoneNumbers, patientGeneratorParameters.PatientRandomTelephone.Generate());
         }
 
         private void CreatePatientModuleOptional(DicomDataset dataset, int patientIndex, PatientGeneratorParameters patientGeneratorParameters)
