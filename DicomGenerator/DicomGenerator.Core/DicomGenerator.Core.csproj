@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="fo-dicom" Version="5.0.1" />
+    <PackageReference Include="fo-dicom" Version="5.1.5" />
   </ItemGroup>
 
 </Project>
