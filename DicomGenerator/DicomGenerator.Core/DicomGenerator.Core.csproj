@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="fo-dicom" Version="5.1.5" />
+    <PackageReference Include="LiteDB" Version="5.0.21" />
   </ItemGroup>
 
 </Project>
