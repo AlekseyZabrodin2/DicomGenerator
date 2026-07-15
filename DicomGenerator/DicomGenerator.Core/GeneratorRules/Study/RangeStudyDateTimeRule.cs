@@ -1,4 +1,6 @@
 ﻿using System;
+using DicomGenerator.Core.DicomGeneratorModels;
+using DicomGenerator.Core.GeneratorRules.Series;
 
 namespace DicomGenerator.Core.GeneratorRules.Study
 {

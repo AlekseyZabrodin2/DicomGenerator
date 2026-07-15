@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using DicomGenerator.Core.GeneratorRules.Study;
 using FellowOakDicom;
 
-namespace DicomGenerator.Core
+namespace DicomGenerator.Core.DicomGeneratorModels
 {
     internal class StudyGenerator
     {

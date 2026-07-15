@@ -2,7 +2,7 @@
 using System.Globalization;
 using System.Numerics;
 
-namespace DicomGenerator.Core
+namespace DicomGenerator.Core.DicomGeneratorModels
 {
     public static class UidGenerator
     {

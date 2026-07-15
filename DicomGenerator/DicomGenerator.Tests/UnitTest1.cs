@@ -1,14 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Text;
-using DicomGenerator.Core;
-using DicomGenerator.Core.GeneratorRules;
-using DicomGenerator.Core.GeneratorRules.Patient;
+using DicomGenerator.Core.GeneratorRules._3_Series;
 using DicomGenerator.Core.GeneratorRules.Series;
+using DicomGenerator.Core.GeneratorRules.Patient;
 using DicomGenerator.Core.GeneratorRules.Sop;
 using DicomGenerator.Core.GeneratorRules.Study;
 using FellowOakDicom;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using DicomGenerator.Core.DicomGeneratorModels;
 
 namespace DicomGenerator.Tests
 {

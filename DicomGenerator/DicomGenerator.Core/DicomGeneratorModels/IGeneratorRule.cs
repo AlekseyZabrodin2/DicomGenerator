@@ -1,4 +1,4 @@
-﻿namespace DicomGenerator.Core
+﻿namespace DicomGenerator.Core.DicomGeneratorModels
 {
     public interface IGeneratorRule<T>
     {

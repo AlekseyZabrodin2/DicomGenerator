@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using DicomGenerator.Core.GeneratorRules.Series;
 using FellowOakDicom;
 
-namespace DicomGenerator.Core
+namespace DicomGenerator.Core.DicomGeneratorModels
 {
     internal class SerieGenerator
     {

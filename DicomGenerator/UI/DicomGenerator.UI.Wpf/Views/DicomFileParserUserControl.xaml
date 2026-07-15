@@ -1,0 +1,338 @@
+﻿<UserControl
+    x:Class="DicomGenerator.UI.Wpf.Views.DicomFileParserUserControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="http://metro.mahapps.com/winfx/xaml/controls"
+    xmlns:convert="clr-namespace:DicomGenerator.UI.Wpf.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:DicomGenerator.UI.Wpf.Views"
+    xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewmodels="clr-namespace:DicomGenerator.UI.Wpf.ViewModels"
+    d:DataContext="{d:DesignInstance viewmodels:DicomFileParserViewModel}"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <convert:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
+        <convert:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <convert:EchoStatusToColorConverter x:Key="EchoStatusToColorConverter" />
+        <convert:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+    </UserControl.Resources>
+
+
+    <Border
+        Grid.Row="0"
+        BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
+        BorderThickness="4">
+
+        <Grid Margin="5" ShowGridLines="False">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+
+            <Grid
+                Grid.Row="0"
+                Grid.ColumnSpan="3"
+                Margin="0,0,0,10">
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBox
+                        VerticalAlignment="Center"
+                        controls:TextBoxHelper.Watermark="Select LiteDb file ..."
+                        IsReadOnly="True"
+                        Text="{Binding DatabasePathShort}"
+                        ToolTip="{Binding DatabasePath}" />
+
+                    <!--  Кнопка выбора файла  -->
+                    <Button
+                        Grid.Column="1"
+                        Margin="5,0,0,0"
+                        Padding="1,0,2,4"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="{DynamicResource MahApps.Brushes.Accent}"
+                        Command="{Binding BrowseDatabaseCommand}"
+                        Content="📁"
+                        FontSize="14"
+                        ToolTip="Выбрать файл базы данных" />
+                </Grid>
+            </Grid>
+
+            <Grid
+                Grid.Row="1"
+                Grid.ColumnSpan="3"
+                Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="70" />
+                    <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+
+                <RadioButton
+                    Margin="0,0,10,0"
+                    Content="Folder"
+                    GroupName="DataSource"
+                    IsChecked="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Folder}" />
+
+                <Grid Grid.Column="1" IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Folder}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBox
+                        Margin="0,0,10,0"
+                        VerticalContentAlignment="Center"
+                        controls:TextBoxHelper.Watermark="Select a folder..."
+                        IsReadOnly="True"
+                        Text="{Binding FolderPath}" />
+
+                    <Button
+                        Grid.Column="1"
+                        Padding="20,8"
+                        Background="{DynamicResource MahApps.Brushes.Accent}"
+                        Command="{Binding BrowseFolderCommand}"
+                        Content="Browse" />
+                </Grid>
+            </Grid>
+
+            <Grid
+                Grid.Row="2"
+                Grid.ColumnSpan="3"
+                Margin="0,0,0,10"
+                ShowGridLines="False">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="70" />
+                    <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+
+                <RadioButton
+                    Margin="0,0,10,0"
+                    Content="PACS"
+                    GroupName="DataSource"
+                    IsChecked="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=PACS}" />
+
+                <Grid Grid.Column="1" IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=PACS}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition />
+                        <ColumnDefinition />
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!--  Calling AE Title  -->
+                    <TextBox
+                        Grid.Column="0"
+                        Margin="0,0,10,0"
+                        VerticalContentAlignment="Center"
+                        controls:TextBoxHelper.Watermark="Клиент - AE Title:"
+                        Text="{Binding CallingAe, Mode=TwoWay}" />
+
+                    <!--  PACS: Хост  -->
+                    <TextBox
+                        Grid.Column="1"
+                        Margin="0,0,10,0"
+                        VerticalContentAlignment="Center"
+                        controls:TextBoxHelper.Watermark="Сервер IP:"
+                        Text="{Binding PacsHost, Mode=TwoWay}"
+                        ToolTip="PACS Host (IP or hostname)" />
+
+                    <!--  PACS: Порт  -->
+                    <TextBox
+                        Grid.Column="2"
+                        Margin="0,0,10,0"
+                        VerticalContentAlignment="Center"
+                        controls:TextBoxHelper.Watermark="Сервер Port:"
+                        Text="{Binding PacsPort, Mode=TwoWay}"
+                        ToolTip="PACS Port" />
+
+                    <!--  Called AE Title  -->
+                    <TextBox
+                        Grid.Column="3"
+                        Margin="0,0,10,0"
+                        VerticalContentAlignment="Center"
+                        controls:TextBoxHelper.Watermark="Сервер - AE Title:"
+                        Text="{Binding CalledAe, Mode=TwoWay}" />
+
+                    <!--  Кнопка Echo  -->
+                    <Button
+                        Grid.Column="4"
+                        Width="50"
+                        Background="{Binding EchoStatus, Converter={StaticResource EchoStatusToColorConverter}}"
+                        Command="{Binding EchoCommand}"
+                        Content="Echo"
+                        ToolTip="Test connection to PACS" />
+
+                </Grid>
+            </Grid>
+
+            <Grid
+                Name="PatientTable"
+                Grid.Row="3"
+                Grid.ColumnSpan="3"
+                Background="{DynamicResource MahApps.Brushes.Accent}">
+                <DataGrid
+                    Name="ViewAllPatient"
+                    Margin="4"
+                    AutoGenerateColumns="False"
+                    CanUserAddRows="False"
+                    CanUserDeleteRows="False"
+                    EnableColumnVirtualization="True"
+                    EnableRowVirtualization="True"
+                    IsReadOnly="True"
+                    ItemsSource="{Binding PreviewPatients}"
+                    ScrollViewer.IsDeferredScrollingEnabled="True"
+                    VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                    VirtualizingPanel.ScrollUnit="Pixel"
+                    VirtualizingPanel.VirtualizationMode="Recycling">
+
+                    <DataGrid.Columns>
+                        <DataGridTextColumn
+                            Binding="{Binding PatientID}"
+                            Header="ID"
+                            IsReadOnly="True" />
+                        <DataGridTextColumn Binding="{Binding LastName}" Header="Фамилия" />
+                        <DataGridTextColumn Binding="{Binding FirstName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Header="Имя" />
+                        <DataGridTextColumn Binding="{Binding MiddleName}" Header="Отчество" />
+                        <DataGridTextColumn Binding="{Binding FullName}" Header="Полное имя" />
+                        <DataGridTextColumn Binding="{Binding BirthDate}" Header="Дата Рождения" />
+                        <DataGridTextColumn Binding="{Binding Sex}" Header="Пол" />
+                        <DataGridTextColumn Binding="{Binding Address}" Header="Адрес" />
+                        <DataGridTextColumn Binding="{Binding Comments}" Header="Доп. информация" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+
+            <Border
+                x:Name="OutputText"
+                Grid.Row="4"
+                Grid.ColumnSpan="3"
+                Margin="0,5"
+                BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
+                BorderThickness="4">
+
+                <TextBox
+                    MinHeight="40"
+                    HorizontalAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    BorderThickness="0"
+                    FontSize="16"
+                    IsReadOnly="True"
+                    Text="{Binding OutputText, UpdateSourceTrigger=PropertyChanged}"
+                    TextWrapping="Wrap" />
+            </Border>
+
+            <StackPanel
+                Grid.Row="5"
+                Grid.Column="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Orientation="Horizontal"
+                Visibility="{Binding CanCancel, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+
+                <Button
+                    Width="100"
+                    Margin="10,0"
+                    Background="{DynamicResource MahApps.Brushes.Accent}"
+                    Command="{Binding ScanDicomCommand}"
+                    Content="Scan Folder"
+                    IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Folder}" />
+
+                <Button
+                    Width="100"
+                    Margin="10,0"
+                    Background="{DynamicResource MahApps.Brushes.Accent}"
+                    Command="{Binding ScanDicomCommand}"
+                    Content="Scan PACS"
+                    IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=PACS}" />
+            </StackPanel>
+            <StackPanel
+                Grid.Row="5"
+                Grid.Column="2"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Orientation="Horizontal">
+
+                <Button
+                    Width="100"
+                    Margin="10,0"
+                    Background="{DynamicResource MahApps.Brushes.Accent}"
+                    Command="{Binding CleanPreviewPatientCommand}"
+                    Content="Clean preview"
+                    IsEnabled="{Binding HasPreviewData}" />
+
+                <Button
+                    Width="100"
+                    Margin="10,0"
+                    Background="{DynamicResource MahApps.Brushes.Accent}"
+                    Command="{Binding SaveToDatabaseCommand}"
+                    Content="Save to DB"
+                    IsEnabled="{Binding HasPreviewData}" />
+            </StackPanel>
+
+            <Grid
+                Grid.Row="0"
+                Grid.RowSpan="6"
+                Grid.Column="0"
+                Grid.ColumnSpan="4"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Border Background="White" Opacity=".7">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <mah:ProgressRing
+                            Width="100"
+                            Height="100"
+                            Foreground="{DynamicResource MahApps.Brushes.AccentBase}"
+                            IsActive="{Binding IsBusy}" />
+
+                        <TextBlock
+                            Margin="0,-60,0,0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Top"
+                            FontSize="20"
+                            FontWeight="Bold"
+                            Foreground="{DynamicResource MahApps.Brushes.AccentBase}"
+                            Text="{Binding CurrentProgress, StringFormat='{}{0}%'}"
+                            Visibility="{Binding PercentShow, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                        <TextBlock
+                            Margin="0,30,0,0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            FontSize="18"
+                            Foreground="Black"
+                            Text="{Binding BusyMessage}" />
+                    </StackPanel>
+                </Border>
+                <Button
+                    Width="100"
+                    Height="25"
+                    VerticalAlignment="Bottom"
+                    Background="{DynamicResource MahApps.Brushes.AccentBase}"
+                    Command="{Binding CancelCommand}"
+                    Content="Cancel"
+                    IsEnabled="True"
+                    Visibility="{Binding CanCancel, Converter={StaticResource BoolToVisibilityConverter}}" />
+            </Grid>
+
+        </Grid>
+
+    </Border>
+</UserControl>

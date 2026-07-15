@@ -1,4 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using DicomGenerator.Core.DicomGeneratorModels;
+using DicomGenerator.Core.GeneratorRules.Study;
+using FellowOakDicom;
 
 namespace DicomGenerator.Core.GeneratorRules.Series
 {
