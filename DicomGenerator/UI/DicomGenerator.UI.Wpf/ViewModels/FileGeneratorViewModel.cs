@@ -31,17 +31,15 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         public bool _useBirthDatePatient;
         private string? _gender; 
         public int _sumCounts;
-
-        // Path to TestData and Save File in Debug
-        //private readonly string _pathToSave = @"D:\Develop\DicomGeneratorTestData\TestResult";
-
-        //private readonly string _pathToTestData = @"D:\Develop\DicomGeneratorTestData\";
-
-
-        // Path to TestData and Save File after Install
         private readonly string _pathToSave = @"D:\DicomGeneratorResult";
 
+
+        // Path to TestData in Debug
         private readonly string _pathToTestData = @"D:\Develop\DicomGeneratorTestData\";
+
+
+        // Path to TestData after Install
+        //private readonly string _pathToTestData = @"C:\Program Files (x86)\DicomGenerator\DicomGeneratorTestData\";
 
 
 
