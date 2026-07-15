@@ -1,7 +1,8 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 
-namespace DicomGenerator.Core
+namespace DicomGenerator.Core.DicomGeneratorModels
 {
     public class StudyGeneratorParameters
     {

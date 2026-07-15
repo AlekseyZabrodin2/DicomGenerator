@@ -1,4 +1,11 @@
-﻿namespace DicomGenerator.Core.GeneratorRules
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using DicomGenerator.Core.DicomGeneratorModels;
+
+namespace DicomGenerator.Core.GeneratorRules._3_Series
 {
     public class SeriesNumberRule : IGeneratorRule<string, int>
 

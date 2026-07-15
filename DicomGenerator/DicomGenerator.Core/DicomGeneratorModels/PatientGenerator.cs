@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using FellowOakDicom;
 
-namespace DicomGenerator.Core
+namespace DicomGenerator.Core.DicomGeneratorModels
 {
     public class PatientGenerator
     {

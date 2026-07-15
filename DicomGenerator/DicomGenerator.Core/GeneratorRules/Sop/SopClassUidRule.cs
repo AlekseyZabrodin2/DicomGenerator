@@ -1,4 +1,5 @@
 ﻿using System;
+using DicomGenerator.Core.DicomGeneratorModels;
 using FellowOakDicom;
 
 namespace DicomGenerator.Core.GeneratorRules.Sop

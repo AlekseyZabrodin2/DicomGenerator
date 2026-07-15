@@ -1,4 +1,5 @@
 ﻿using System;
+using DicomGenerator.Core.DicomGeneratorModels;
 
 namespace DicomGenerator.Core.GeneratorRules.Patient
 {

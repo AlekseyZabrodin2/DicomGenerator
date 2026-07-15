@@ -1,7 +1,7 @@
 ﻿using System;
 using DicomGenerator.Core.GeneratorRules.Sop;
 
-namespace DicomGenerator.Core
+namespace DicomGenerator.Core.DicomGeneratorModels
 {
     public sealed class Modality
     {

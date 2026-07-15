@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace DicomGenerator.Core
+namespace DicomGenerator.Core.DicomGeneratorModels
 {
     public class SerieGeneratorParameters
     {
