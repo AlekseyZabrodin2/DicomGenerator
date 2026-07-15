@@ -6,12 +6,12 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewmodels="clr-namespace:DicomGenerator.UI.Wpf.ViewModels"
+    xmlns:views="clr-namespace:DicomGenerator.UI.Wpf.Views"
     xmlns:wpf="clr-namespace:DicomGenerator.UI.Wpf"
     Title="Generator Dicom File"
-    Width="897"
-    Height="793"
-    d:DataContext="{d:DesignInstance Type=wpf:MainViewModel,
-                                     IsDesignTimeCreatable=False}"
+    Width="905"
+    Height="555"
     Icon="D:\Develop\dicomGenerator\DicomGenerator\UI\DicomGenerator.UI.Wpf\DicomGenerator.ico"
     WindowStartupLocation="CenterScreen"
     WindowStyle="ThreeDBorderWindow"
@@ -23,505 +23,105 @@
 
     <!--  Path for debug           Icon="D:\Develop\dicomGenerator\DicomGenerator\UI\DicomGenerator.UI.Wpf\DicomGenerator.ico"  -->
 
+    <TabControl>
 
-    <Grid ShowGridLines="False">
+        <TabControl.Resources>
+            <Style TargetType="TabItem">
+                <Setter Property="Padding" Value="3" />
+                <Setter Property="Margin" Value="4,1,1,1" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TabItem">
+                            <Border
+                                Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                                <ContentPresenter
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    ContentSource="Header" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Accent}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
 
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="60" />
-            <RowDefinition />
-            <RowDefinition Height="auto" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition />
-            <ColumnDefinition />
-            <ColumnDefinition />
-            <ColumnDefinition />
-        </Grid.ColumnDefinitions>
+            <DataTemplate DataType="{x:Type viewmodels:FileGeneratorViewModel}">
+                <views:FileGeneratorUserControl />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type viewmodels:FileSenderViewModel}">
+                <views:FileSenderUserControl />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type viewmodels:DicomFileParserViewModel}">
+                <views:DicomFileParserUserControl />
+            </DataTemplate>
+        </TabControl.Resources>
 
 
-        <Grid
-            Name="AddPatients"
-            Grid.Row="0"
-            Grid.RowSpan="3"
-            Grid.Column="0"
-            Grid.ColumnSpan="2"
-            Margin="5,5,5,5">
-
-            <Border
-                Grid.Row="0"
-                BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
-                BorderThickness="5">
-
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition />
-                        <ColumnDefinition />
-                    </Grid.ColumnDefinitions>
-
-                    <Grid Grid.Row="0" Grid.Column="0">
-                        <StackPanel>
-                            <TextBlock
-                                Margin="5,5,0,0"
-                                FontWeight="DemiBold"
-                                Text="Количество пациентов:" />
-                            <TextBox Margin="5" Text="{Binding SetPatientsCount, Mode=TwoWay}" />
-
-                            <TextBlock
-                                Margin="5,3,0,0"
-                                FontWeight="DemiBold"
-                                Text="Фамилия:" />
-                            <TextBox
-                                Margin="5"
-                                AutomationProperties.AutomationId="AddFamilyTextBox"
-                                Text="{Binding CreateLastNamePatient, Mode=TwoWay}" />
-
-                            <TextBlock
-                                Margin="5,3,0,0"
-                                FontWeight="DemiBold"
-                                Text="Отчество:" />
-                            <TextBox Margin="5" Text="{Binding CreateMiddleNamePatient, Mode=TwoWay}" />
-
-                            <CheckBox
-                                Margin="5,3,0,0"
-                                Content="Дата рождения:"
-                                FontWeight="DemiBold"
-                                IsChecked="{Binding UseBirthDatePatient}" />
-                            <DatePicker
-                                Margin="5"
-                                IsEnabled="{Binding UseBirthDatePatient}"
-                                SelectedDate="{Binding CreateBirthDatePatient, Mode=TwoWay}"
-                                SelectedDateFormat="Short" />
-
-                            <TextBlock
-                                Margin="5,3,0,0"
-                                FontWeight="DemiBold"
-                                Text="Адрес:" />
-                            <TextBox Margin="5" Text="{Binding CreateAdressPatient, Mode=TwoWay}" />
-
-                        </StackPanel>
-                    </Grid>
-                    <Grid Grid.Row="0" Grid.Column="1">
-                        <StackPanel>
-
-                            <TextBlock
-                                Margin="5,5,0,0"
-                                FontWeight="DemiBold"
-                                Text="ИД пациента" />
-                            <TextBox Margin="5" Text="{Binding CreateIdPatient, Mode=TwoWay}" />
-
-                            <TextBlock
-                                Margin="5,3,0,0"
-                                FontWeight="DemiBold"
-                                Text="Имя:" />
-                            <TextBox Margin="5" Text="{Binding CreateNamePatient, Mode=TwoWay}" />
-
-                            <TextBlock
-                                Margin="5,3,0,0"
-                                FontWeight="DemiBold"
-                                Text="Пол:" />
-                            <ComboBox
-                                Margin="5"
-                                ItemsSource="{Binding CreateGenderPatient}"
-                                SelectedItem="{Binding SelectedGender}" />
-
-                            <TextBlock
-                                Margin="5,5,0,0"
-                                FontWeight="DemiBold"
-                                Text="Период рождения:" />
-                            <DatePicker
-                                Margin="5"
-                                IsEnabled="{Binding UsePeriodBirthDatePatient}"
-                                SelectedDate="{Binding CreatePeriodBirthDatePatient, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                SelectedDateFormat="Short" />
-
-                            <TextBlock
-                                Margin="5,3,0,0"
-                                FontWeight="DemiBold"
-                                Text="Телефон:" />
-                            <TextBox Margin="5" Text="{Binding CreatePhonePatient, Mode=TwoWay}" />
-
-                        </StackPanel>
-                    </Grid>
-
-                    <Grid
-                        Grid.Row="1"
-                        Grid.Column="0"
-                        Grid.ColumnSpan="2">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock
-                            Margin="5,0,0,0"
-                            FontWeight="DemiBold"
-                            Text="Дополнительная информация:" />
-                        <TextBox
-                            Grid.Row="1"
-                            Margin="5"
-                            Text="{Binding CreateInfoPatient, Mode=TwoWay}" />
-                    </Grid>
-                </Grid>
-            </Border>
-        </Grid>
-
-        <Grid
-            Name="AddStudies"
-            Grid.Row="0"
-            Grid.RowSpan="2"
-            Grid.Column="2"
-            Margin="5,5,5,5">
-
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <Border
-                Grid.Row="0"
-                BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
-                BorderThickness="5">
-                <StackPanel>
-
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
                     <TextBlock
-                        Margin="5,5,0,0"
-                        FontWeight="DemiBold"
-                        Text="Количество исследований:" />
-                    <TextBox Margin="5" Text="{Binding SetStudiesCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
+                        Margin="3"
+                        FontSize="16"
+                        Text="📁" />
                     <TextBlock
-                        Margin="5,3,0,0"
-                        FontWeight="DemiBold"
-                        Text="Начало периода:" />
-                    <DatePicker Margin="5" SelectedDate="{Binding CreateStartDatePatient, UpdateSourceTrigger=PropertyChanged}" />
-
-                    <TextBlock
-                        Margin="5,3,0,0"
-                        FontWeight="DemiBold"
-                        Text="Конец периода:" />
-                    <DatePicker
-                        Margin="5,5,5,10"
-                        AutomationProperties.AutomationId="AddFamilyTextBox"
-                        SelectedDate="{Binding CreateEndDatePatient, UpdateSourceTrigger=PropertyChanged}" />
+                        Margin="0,3,10,3"
+                        VerticalAlignment="Center"
+                        FontSize="14"
+                        FontWeight="SemiBold"
+                        Text="Generate" />
                 </StackPanel>
-            </Border>
-        </Grid>
+            </TabItem.Header>
 
-        <Grid
-            Name="AddSeries"
-            Grid.Row="0"
-            Grid.RowSpan="2"
-            Grid.Column="3"
-            Margin="5,5,5,5">
+            <views:FileGeneratorUserControl />
+        </TabItem>
 
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <Border
-                Grid.Row="0"
-                BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
-                BorderThickness="5">
-                <StackPanel>
-
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
                     <TextBlock
-                        Margin="5,5,0,0"
-                        FontWeight="DemiBold"
-                        Text="Количество серий:" />
-                    <TextBox Margin="5" Text="{Binding SetSeriesCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
+                        Margin="3"
+                        FontSize="16"
+                        Text="🌐" />
                     <TextBlock
-                        Margin="5,3,0,0"
-                        FontWeight="DemiBold"
-                        Text="Начало проведения:" />
-                    <mah:TimePicker
-                        Margin="5"
-                        Culture="ru"
-                        SelectedDateTime="{Binding CreateStartTimePatient, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
-                        SelectedTimeFormat="Short" />
-
-                    <TextBlock
-                        Margin="5,3,0,0"
-                        FontWeight="DemiBold"
-                        Text="Конец проведения:" />
-                    <mah:TimePicker
-                        Margin="5,5,5,10"
-                        Culture="ru"
-                        SelectedDateTime="{Binding CreateEndTimePatient, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
-                        SelectedTimeFormat="Short" />
-
+                        Margin="0,3,10,3"
+                        VerticalAlignment="Center"
+                        FontSize="14"
+                        FontWeight="SemiBold"
+                        Text="PACS" />
                 </StackPanel>
-            </Border>
-        </Grid>
+            </TabItem.Header>
 
-        <Grid
-            Name="AddModality"
-            Grid.Row="2"
-            Grid.Column="2"
-            Grid.ColumnSpan="2"
-            Margin="5">
+            <views:FileSenderUserControl />
+        </TabItem>
 
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <Border
-                Grid.Row="0"
-                BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
-                BorderThickness="5">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition />
-                        <ColumnDefinition />
-                    </Grid.ColumnDefinitions>
-                    <Grid Grid.Column="0">
-                        <StackPanel>
-                            <TextBlock
-                                Margin="5,5,0,0"
-                                FontWeight="DemiBold"
-                                Text="Количество файлов MG:" />
-                            <TextBox Margin="5" Text="{Binding SopMgCount, Mode=TwoWay}" />
-
-                            <TextBlock
-                                Margin="5,0,0,0"
-                                FontWeight="DemiBold"
-                                Text="Количество файлов DX:" />
-                            <TextBox Margin="5" Text="{Binding SopDxCount, Mode=TwoWay}" />
-                        </StackPanel>
-                    </Grid>
-                    <Grid Grid.Column="1">
-                        <StackPanel>
-
-                            <TextBlock
-                                Margin="5,5,0,0"
-                                FontWeight="DemiBold"
-                                Text="Кодировка:" />
-                            <ComboBox
-                                Margin="5"
-                                Background="{DynamicResource MahApps.Brushes.Button.Border}"
-                                FontWeight="DemiBold"
-                                IsEditable="False"
-                                ItemsSource="{Binding Encodings}"
-                                SelectedItem="{Binding ChooseCod, Mode=TwoWay}" />
-
-                            <TextBlock
-                                Margin="5,0,0,0"
-                                FontWeight="DemiBold"
-                                Text="Количество файлов SR:" />
-                            <TextBox Margin="5" Text="{Binding SopSrCount, Mode=TwoWay}" />
-
-                        </StackPanel>
-                    </Grid>
-                </Grid>
-
-
-            </Border>
-        </Grid>
-
-        <Grid
-            Grid.Row="3"
-            Grid.Column="0"
-            Grid.ColumnSpan="4"
-            Margin="5">
-            <Border
-                Grid.Row="0"
-                BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
-                BorderThickness="5">
-                <TextBox
-                    Name="UpdateText"
-                    MinHeight="40"
-                    HorizontalAlignment="Center"
-                    BorderThickness="0"
-                    FontSize="20"
-                    IsReadOnly="True"
-                    Text="{Binding UpdateText, UpdateSourceTrigger=PropertyChanged}" />
-            </Border>
-
-        </Grid>
-
-
-
-        <Button
-            Name="CleanUpButton"
-            Grid.Row="4"
-            Grid.Column="1"
-            Width="70"
-            Height="40"
-            Margin="10"
-            HorizontalAlignment="Center"
-            Command="{Binding CleanUp_Click}"
-            Content="Clean Up" />
-
-        <Button
-            Name="GenerateButton"
-            Grid.Row="4"
-            Grid.Column="2"
-            Width="70"
-            Height="40"
-            Margin="10"
-            HorizontalAlignment="Center"
-            Command="{Binding GenerateFile_Click}"
-            Content="Generate" />
-
-        <Grid
-            Name="AddConnecting"
-            Grid.Row="5"
-            Grid.RowSpan="2"
-            Grid.Column="1"
-            Grid.ColumnSpan="2"
-            Margin="5,0,5,0">
-
-            <Border
-                Grid.Row="0"
-                BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
-                BorderThickness="5">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition />
-                        <ColumnDefinition />
-                    </Grid.ColumnDefinitions>
-                    <Grid Grid.Column="0">
-                        <StackPanel>
-                            <TextBlock
-                                Margin="5,5,0,0"
-                                FontWeight="DemiBold"
-                                Text="Сервер IP:" />
-                            <TextBox Margin="5" Text="{Binding CreateServerIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                            <TextBlock
-                                Margin="5,0,0,0"
-                                FontWeight="DemiBold"
-                                Text="Вызываемый AE Title:" />
-                            <TextBox Margin="5" Text="{Binding CreateCallingAe, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                        </StackPanel>
-                    </Grid>
-                    <Grid Grid.Column="1">
-                        <StackPanel>
-                            <TextBlock
-                                Margin="5,5,0,0"
-                                FontWeight="DemiBold"
-                                Text="Сервер Port:" />
-                            <TextBox Margin="5" Text="{Binding CreateServerPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                            <TextBlock
-                                Margin="5,0,0,0"
-                                FontWeight="DemiBold"
-                                Text="Вызывающий AE Title:" />
-                            <TextBox Margin="5" Text="{Binding CreateCalledAe, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                        </StackPanel>
-                    </Grid>
-                    <Grid
-                        Grid.Row="1"
-                        Grid.Column="0"
-                        Grid.ColumnSpan="2">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock
-                            Margin="5,0,0,0"
-                            FontWeight="DemiBold"
-                            Text="Путь к файлам:" />
-                        <TextBox
-                            Grid.Row="1"
-                            Margin="5,3,5,5"
-                            Text="{Binding CreateSourceFolderPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    </Grid>
-                </Grid>
-            </Border>
-        </Grid>
-
-        <Grid
-            Grid.Row="7"
-            Grid.Column="1"
-            Grid.ColumnSpan="2"
-            Margin="5">
-            <Border
-                Grid.Row="0"
-                BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
-                BorderThickness="5">
-                <StackPanel>
-                    <TextBox
-                        MinHeight="40"
-                        HorizontalAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        BorderThickness="0"
-                        FontSize="12"
-                        IsReadOnly="True"
-                        Text="{Binding ServerOutputText, UpdateSourceTrigger=PropertyChanged}"
-                        TextWrapping="Wrap" />
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock
+                        Margin="3"
+                        FontSize="16"
+                        Text="📄" />
+                    <TextBlock
+                        Margin="0,3,10,3"
+                        VerticalAlignment="Center"
+                        FontSize="14"
+                        FontWeight="SemiBold"
+                        Text="Парсинг DICOM" />
                 </StackPanel>
-            </Border>
+            </TabItem.Header>
 
-        </Grid>
-        <Grid
-            Grid.Row="8"
-            Grid.Column="1"
-            Grid.ColumnSpan="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition />
-                <ColumnDefinition />
-            </Grid.ColumnDefinitions>
-            <Button
-                Width="70"
-                Height="40"
-                Margin="10"
-                HorizontalAlignment="Right"
-                Command="{Binding CancaelSendingImage}"
-                Content="Cancel" />
+            <views:DicomFileParserUserControl />
+        </TabItem>
 
-            <Button
-                Grid.Column="1"
-                Width="70"
-                Height="40"
-                Margin="10"
-                HorizontalAlignment="Left"
-                Command="{Binding SendDicomImage}"
-                Content="Move File" />
-        </Grid>
-
-        <Grid
-            Grid.Row="0"
-            Grid.RowSpan="10"
-            Grid.Column="0"
-            Grid.ColumnSpan="5"
-            Width="2000"
-            Height="1100"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center"
-            Visibility="{Binding IsVisible}">
-
-            <Border Background="White" Opacity=".7">
-
-
-                <mah:ProgressRing
-                    Width="100"
-                    Height="100"
-                    Foreground="{DynamicResource MahApps.Brushes.AccentBase}" />
-
-            </Border>
-
-
-
-        </Grid>
-
-    </Grid>
-
+    </TabControl>
 
 </mah:MetroWindow>

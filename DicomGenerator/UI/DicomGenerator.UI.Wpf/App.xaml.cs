@@ -1,13 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using DicomGenerator.Core;
-using DicomGenerator.Core.GeneratorRules.Patient;
+﻿using System.Windows;
 
 namespace DicomGenerator.UI.Wpf
 {
@@ -21,7 +12,6 @@ namespace DicomGenerator.UI.Wpf
             base.OnStartup(e);
 
             var mainWindow = new MainWindow();
-            mainWindow.DataContext = new MainViewModel();
             mainWindow.Show();
         }
     }
