@@ -17,6 +17,7 @@
         <convert:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <convert:EchoStatusToColorConverter x:Key="EchoStatusToColorConverter" />
         <convert:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+        <convert:BoolToOpacityConverter x:Key="BoolToOpacityConverter" />
     </UserControl.Resources>
 
 
@@ -55,6 +56,7 @@
                     <TextBox
                         VerticalAlignment="Center"
                         controls:TextBoxHelper.Watermark="Select LiteDb file ..."
+                        BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
                         IsReadOnly="True"
                         Text="{Binding DatabasePathShort}"
                         ToolTip="{Binding DatabasePath}" />
@@ -88,27 +90,34 @@
                     Content="Folder"
                     GroupName="DataSource"
                     IsChecked="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Folder}" />
-
-                <Grid Grid.Column="1" IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Folder}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <TextBox
-                        Margin="0,0,10,0"
-                        VerticalContentAlignment="Center"
-                        controls:TextBoxHelper.Watermark="Select a folder..."
-                        IsReadOnly="True"
-                        Text="{Binding FolderPath}" />
-
-                    <Button
+                <Border Grid.Column="1">
+                    <Grid
                         Grid.Column="1"
-                        Padding="20,8"
-                        Background="{DynamicResource MahApps.Brushes.Accent}"
-                        Command="{Binding BrowseFolderCommand}"
-                        Content="Browse" />
-                </Grid>
+                        IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Folder}"
+                        Opacity="{Binding SelectedDataSource, Converter={StaticResource BoolToOpacityConverter}, ConverterParameter=Folder}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBox
+                            Margin="0,0,10,0"
+                            VerticalContentAlignment="Center"
+                            controls:TextBoxHelper.Watermark="Select a folder..."
+                            BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
+                            IsReadOnly="True"
+                            Text="{Binding FolderPath}" />
+
+                        <Button
+                            Grid.Column="1"
+                            Width="100"
+                            Padding="20,8"
+                            Background="{DynamicResource MahApps.Brushes.Accent}"
+                            Command="{Binding BrowseFolderCommand}"
+                            Content="Browse" />
+                    </Grid>
+                </Border>
+
             </Grid>
 
             <Grid
@@ -127,7 +136,10 @@
                     GroupName="DataSource"
                     IsChecked="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=PACS}" />
 
-                <Grid Grid.Column="1" IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=PACS}">
+                <Grid
+                    Grid.Column="1"
+                    IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=PACS}"
+                    Opacity="{Binding SelectedDataSource, Converter={StaticResource BoolToOpacityConverter}, ConverterParameter=PACS}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition />
                         <ColumnDefinition />
@@ -142,6 +154,7 @@
                         Margin="0,0,10,0"
                         VerticalContentAlignment="Center"
                         controls:TextBoxHelper.Watermark="Клиент - AE Title:"
+                        BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
                         Text="{Binding CallingAe, Mode=TwoWay}" />
 
                     <!--  PACS: Хост  -->
@@ -150,6 +163,7 @@
                         Margin="0,0,10,0"
                         VerticalContentAlignment="Center"
                         controls:TextBoxHelper.Watermark="Сервер IP:"
+                        BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
                         Text="{Binding PacsHost, Mode=TwoWay}"
                         ToolTip="PACS Host (IP or hostname)" />
 
@@ -159,6 +173,7 @@
                         Margin="0,0,10,0"
                         VerticalContentAlignment="Center"
                         controls:TextBoxHelper.Watermark="Сервер Port:"
+                        BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
                         Text="{Binding PacsPort, Mode=TwoWay}"
                         ToolTip="PACS Port" />
 
@@ -168,15 +183,16 @@
                         Margin="0,0,10,0"
                         VerticalContentAlignment="Center"
                         controls:TextBoxHelper.Watermark="Сервер - AE Title:"
+                        BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
                         Text="{Binding CalledAe, Mode=TwoWay}" />
 
                     <!--  Кнопка Echo  -->
                     <Button
                         Grid.Column="4"
-                        Width="50"
+                        Width="100"
                         Background="{Binding EchoStatus, Converter={StaticResource EchoStatusToColorConverter}}"
                         Command="{Binding EchoCommand}"
-                        Content="Echo"
+                        Content="Echo Test"
                         ToolTip="Test connection to PACS" />
 
                 </Grid>
