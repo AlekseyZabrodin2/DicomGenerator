@@ -21,8 +21,8 @@ namespace DicomGenerator.UI.Wpf.DicomFileParser
 
 
 
-        public void SaveToDatabase(List<DicomFileInfo> dicomFiles, 
-            IProgress<int> progress = null,
+        public void SaveToDatabase(List<DicomFileInfo> dicomFiles,
+            IProgress<(int Percent, string Message)> progress = null,
             CancellationToken cancellationToken = default)
         {
             var patientsToInsert = new List<LitePatient>(_batchSize);
@@ -40,7 +40,7 @@ namespace DicomGenerator.UI.Wpf.DicomFileParser
                 return;
 
             var total = dicomFiles.Count;
-            var processed = 0;            
+            var processed = 0;
 
             var patients = dicomFiles
                 .Where(x =>
@@ -85,7 +85,7 @@ namespace DicomGenerator.UI.Wpf.DicomFileParser
                             if (processed % 10 == 0 || processed == total)
                             {
                                 var percent = (int)((double)processed / total * 100);
-                                progress?.Report(percent);
+                                progress?.Report((percent, $"Сохранение в БД ... "));
                             }
                         }
                     }
@@ -171,7 +171,7 @@ namespace DicomGenerator.UI.Wpf.DicomFileParser
         }
 
         private void SaveImage(ImageLiteDb image, List<LiteImage> imagesToInsert, HashSet<string> imageUids)
-        {            
+        {
             if (image == null || string.IsNullOrWhiteSpace(image.SopInstanceUid))
                 return;
 

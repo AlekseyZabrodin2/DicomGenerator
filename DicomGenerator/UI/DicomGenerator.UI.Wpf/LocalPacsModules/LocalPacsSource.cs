@@ -39,10 +39,10 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
             _parser = new DicomParser();
         }
 
-        
 
-        public async Task<List<DicomFileInfo>> LoadDicomMetadataAsync(IDicomClient client, 
-            IProgress<int> progress,
+
+        public async Task<List<DicomFileInfo>> LoadDicomMetadataAsync(IDicomClient client,
+            IProgress<(int Percent, string Message)> progress,
             CancellationToken cancellationToken = default)
         {
             PreviewPatients = new();
@@ -78,13 +78,13 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
                 if (string.IsNullOrEmpty(studyUid))
                     continue;
 
-                var studyFiles = await LoadSeriesAsync(client, studyUid, studyInfo.Patient, studyInfo.Study, cancellationToken);                
+                var studyFiles = await LoadSeriesAsync(client, studyUid, studyInfo.Patient, studyInfo.Study, cancellationToken);
 
                 results.AddRange(studyFiles);
 
                 processed++;
-
-                progress?.Report((int)((double)processed / studies.Count * 100));
+                var percent = (int)((double)processed / studies.Count * 100);
+                progress?.Report((percent, "Сканирование исследований ... "));
             }
 
             return results;
@@ -126,7 +126,9 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
             return result;
         }
 
-        private async Task<List<DicomFileInfo>> LoadSeriesAsync(IDicomClient client, string studyUid, PatientLiteDb patient, StudyLiteDb study, CancellationToken cancellationToken)
+        private async Task<List<DicomFileInfo>> LoadSeriesAsync(IDicomClient client, 
+            string studyUid, PatientLiteDb patient, 
+            StudyLiteDb study, CancellationToken cancellationToken)
         {
             var results = new List<DicomFileInfo>();
 
@@ -143,7 +145,7 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
                     if (response.Dataset != null)
                     {
                         seriesDatasets.Add(response.Dataset);
-                    }                        
+                    }
                 }
                 else
                 {
@@ -194,7 +196,9 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
             return results;
         }
 
-        private async Task<List<ImageLiteDb>> LoadImagesAsync(IDicomClient client, string studyUid, string seriesUid, CancellationToken cancellationToken)
+        private async Task<List<ImageLiteDb>> LoadImagesAsync(IDicomClient client, 
+            string studyUid, string seriesUid, 
+            CancellationToken cancellationToken)
         {
             var results = new List<ImageLiteDb>();
 
@@ -240,5 +244,172 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
 
             return results;
         }
+
+        public async Task<List<DicomFileInfo>> LoadDicomMetadataFastAsync(IDicomClient client,
+            IProgress<(int Percent, string Message)>? progress,
+            CancellationToken cancellationToken = default)
+        {
+            PreviewPatients = new();
+
+            PatientsCount = 0;
+            StudiesCount = 0;
+            SeriesCount = 0;
+            ImagesCount = 0;
+
+            progress?.Report((0, "Загрузка исследований ..."));
+
+            var datasets = await LoadAllImagesAsync(client, progress, cancellationToken);
+
+            progress?.Report((0, $"Сканирование исследований ..."));
+
+            var result = new List<DicomFileInfo>();
+
+            var patients = new Dictionary<string, PatientLiteDb>();
+            var studies = new Dictionary<string, StudyLiteDb>();
+            var series = new Dictionary<string, SeriesLiteDb>();
+
+            var total = datasets.Count;
+            var processed = 0;
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            foreach (var dataset in datasets)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    var imageInfo = _parser.ParseDataset(dataset);
+
+                    if (imageInfo != null)
+                    {
+                        var patientId = imageInfo.Patient.PatientID;
+                        var studyUid = imageInfo.Study.StudyInstanceUid;
+                        var seriesUid = imageInfo.Series.SeriesInstanceUid;
+
+                        if (!patients.TryGetValue(patientId, out var patient))
+                        {
+                            patient = imageInfo.Patient;
+                            patients.Add(patientId, patient);
+                            PreviewPatients.Add(patient);
+                            PatientsCount++;
+                        }
+
+                        if (!studies.TryGetValue(studyUid, out var study))
+                        {
+                            study = imageInfo.Study;
+                            studies.Add(studyUid, study);
+                            StudiesCount++;
+                        }
+
+                        if (!series.TryGetValue(seriesUid, out var serie))
+                        {
+                            serie = imageInfo.Series;
+                            series.Add(seriesUid, serie);
+                            SeriesCount++;
+                        }
+
+                        ImagesCount++;
+
+                        result.Add(new DicomFileInfo
+                        {
+                            Patient = patient,
+                            Study = study,
+                            Series = serie,
+                            Image = imageInfo.Image
+                        });
+                    }
+                }
+                finally
+                {
+                    processed++;
+                    var percent = (int)((double)processed * 100 / total);
+                    progress?.Report((percent, $"Parsing {processed}/{total}..."));
+                }
+            }
+
+            return result;
+        }
+
+        private async Task<List<DicomDataset>> LoadAllImagesAsync(IDicomClient client,
+            IProgress<(int Percent, string Message)>? progress,
+            CancellationToken cancellationToken = default)
+        {
+            var images = new List<DicomDataset>();
+
+            var request = new DicomCFindRequest(DicomQueryRetrieveLevel.Image);
+
+            foreach (var tag in ImageQueryTags)
+            {
+                request.Dataset.AddOrUpdate(tag, "");
+            }
+
+            Exception? pacsException = null;
+            void Handler(DicomCFindRequest _, DicomCFindResponse response)
+            {
+                if (response.Status == DicomStatus.Pending && response.Dataset != null)
+                {
+                    images.Add(response.Dataset);
+                    return;
+                }
+                if (response.Status.State == DicomState.Failure)
+                {
+                    pacsException = new InvalidOperationException($"PACS C-FIND error: {response.Status}");
+                }
+            }
+
+            request.OnResponseReceived += Handler;
+
+            try
+            {
+                await client.AddRequestAsync(request);
+                await client.SendAsync(cancellationToken, DicomClientCancellationMode.ImmediatelyAbortAssociation);
+
+                if (pacsException != null)
+                    throw pacsException;
+
+                return images;
+            }
+            catch (OperationCanceledException)
+            {
+                progress?.Report((0, "Запрос отменен"));
+                throw;
+            }
+            finally
+            {
+                request.OnResponseReceived -= Handler;
+            }
+        }
+
+        private static readonly DicomTag[] ImageQueryTags =
+        {
+            DicomTag.PatientID,
+            DicomTag.PatientName,
+            DicomTag.PatientBirthDate,
+            DicomTag.PatientSex,
+            DicomTag.PatientTelephoneNumbers,
+            DicomTag.PatientAddress,
+            DicomTag.PatientComments,
+
+            DicomTag.StudyInstanceUID,
+            DicomTag.StudyID,
+            DicomTag.StudyDate,
+            DicomTag.StudyTime,
+            DicomTag.AccessionNumber,
+            DicomTag.StudyDescription,
+
+            DicomTag.SeriesInstanceUID,
+            DicomTag.SeriesDescription,
+            DicomTag.SeriesNumber,
+            DicomTag.Modality,
+            DicomTag.BodyPartExamined,
+            DicomTag.OperatorsName,
+
+            DicomTag.SOPInstanceUID,
+            DicomTag.InstanceNumber,
+            DicomTag.ImageLaterality,
+            DicomTag.AcquisitionTime,
+            DicomTag.EntranceDose
+        };
     }
 }

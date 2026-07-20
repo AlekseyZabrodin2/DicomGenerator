@@ -28,8 +28,8 @@ namespace DicomGenerator.Core.DicomFileParser
         }
 
 
-        public async Task<List<DicomFileInfo>> ScanFolderAsync(string folderPath, 
-            IProgress<int> progress = null,
+        public async Task<List<DicomFileInfo>> ScanFolderAsync(string folderPath,
+            IProgress<(int Percent, string Message)> progress = null,
             CancellationToken cancellationToken = default)
         {
             PreviewPatients.Clear();
@@ -46,17 +46,17 @@ namespace DicomGenerator.Core.DicomFileParser
             var files = Directory.GetFiles(folderPath, "*.*", SearchOption.AllDirectories);
 
             if (files.Length == 0)
-                return results;            
+                return results;
 
             results = await Task.Run(() => ScanFiles(files, progress, cancellationToken));
 
             return results;
         }
 
-        private List<DicomFileInfo> ScanFiles(string[] files
-            , IProgress<int> progress = null,
+        private List<DicomFileInfo> ScanFiles(string[] files,
+            IProgress<(int Percent, string Message)> progress = null,
             CancellationToken cancellationToken = default)
-        {            
+        {
             var results = new List<DicomFileInfo>();
 
             var patientIds = new HashSet<string>();
@@ -104,7 +104,8 @@ namespace DicomGenerator.Core.DicomFileParser
                         results.Add(info);
 
                         parsedCount++;
-                        progress?.Report((int)((double)parsedCount / files.Length * 100));
+                        var percent = (int)((double)parsedCount / files.Length * 100);
+                        progress?.Report((percent, "Сканирование исследований ... "));
                     }
                 }
                 catch (Exception ex)
