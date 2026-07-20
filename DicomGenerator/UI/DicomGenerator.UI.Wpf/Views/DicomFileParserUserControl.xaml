@@ -24,10 +24,11 @@
     <Border
         Grid.Row="0"
         BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
-        BorderThickness="4">
+        BorderThickness="3">
 
         <Grid Margin="5" ShowGridLines="False">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -88,6 +89,7 @@
                 <RadioButton
                     Margin="0,0,10,0"
                     Content="Folder"
+                    FontWeight="SemiBold"
                     GroupName="DataSource"
                     IsChecked="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Folder}" />
                 <Border Grid.Column="1">
@@ -133,6 +135,7 @@
                 <RadioButton
                     Margin="0,0,10,0"
                     Content="PACS"
+                    FontWeight="SemiBold"
                     GroupName="DataSource"
                     IsChecked="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=PACS}" />
 
@@ -199,49 +202,100 @@
             </Grid>
 
             <Grid
-                Name="PatientTable"
                 Grid.Row="3"
                 Grid.ColumnSpan="3"
-                Background="{DynamicResource MahApps.Brushes.Accent}">
-                <DataGrid
-                    Name="ViewAllPatient"
-                    Margin="4"
-                    AutoGenerateColumns="False"
-                    CanUserAddRows="False"
-                    CanUserDeleteRows="False"
-                    EnableColumnVirtualization="True"
-                    EnableRowVirtualization="True"
-                    IsReadOnly="True"
-                    ItemsSource="{Binding PreviewPatients}"
-                    ScrollViewer.IsDeferredScrollingEnabled="True"
-                    VirtualizingPanel.IsVirtualizingWhenGrouping="True"
-                    VirtualizingPanel.ScrollUnit="Pixel"
-                    VirtualizingPanel.VirtualizationMode="Recycling">
+                Margin="5,0,0,10"
+                IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=PACS}"
+                Opacity="{Binding SelectedDataSource, Converter={StaticResource BoolToOpacityConverter}, ConverterParameter=PACS}">
 
-                    <DataGrid.Columns>
-                        <DataGridTextColumn
-                            Binding="{Binding PatientID}"
-                            Header="ID"
-                            IsReadOnly="True" />
-                        <DataGridTextColumn Binding="{Binding LastName}" Header="Фамилия" />
-                        <DataGridTextColumn Binding="{Binding FirstName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Header="Имя" />
-                        <DataGridTextColumn Binding="{Binding MiddleName}" Header="Отчество" />
-                        <DataGridTextColumn Binding="{Binding FullName}" Header="Полное имя" />
-                        <DataGridTextColumn Binding="{Binding BirthDate}" Header="Дата Рождения" />
-                        <DataGridTextColumn Binding="{Binding Sex}" Header="Пол" />
-                        <DataGridTextColumn Binding="{Binding Address}" Header="Адрес" />
-                        <DataGridTextColumn Binding="{Binding Comments}" Header="Доп. информация" />
-                    </DataGrid.Columns>
-                </DataGrid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock
+                    Grid.Column="0"
+                    Margin="0,0,10,0"
+                    VerticalAlignment="Center"
+                    FontWeight="SemiBold"
+                    Text="Loading Mode:" />
+
+                <RadioButton
+                    Grid.Column="1"
+                    Margin="0,0,10,0"
+                    Content="Auto"
+                    GroupName="PacsLoadingMode"
+                    IsChecked="{Binding LoadingMode, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Auto}" />
+
+                <RadioButton
+                    Grid.Column="2"
+                    Margin="0,0,10,0"
+                    Content="Fast"
+                    GroupName="PacsLoadingMode"
+                    IsChecked="{Binding LoadingMode, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Fast}" />
+
+                <RadioButton
+                    Grid.Column="3"
+                    Content="Single"
+                    GroupName="PacsLoadingMode"
+                    IsChecked="{Binding LoadingMode, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Compatible}" />
+
+                <TextBox
+                    Grid.Column="4"
+                    Margin="10,0,0,0"
+                    VerticalAlignment="Center"
+                    Text="{Binding CurrentLoadingMode, Mode=TwoWay}" />
             </Grid>
 
             <Border
-                x:Name="OutputText"
                 Grid.Row="4"
+                Grid.ColumnSpan="3"
+                BorderThickness="3"
+                BorderBrush="{DynamicResource MahApps.Brushes.Accent}">
+                <Grid Name="PatientTable">
+                    <DataGrid
+                        Name="ViewAllPatient"
+                        AutoGenerateColumns="False"
+                        CanUserAddRows="False"
+                        CanUserDeleteRows="False"
+                        EnableColumnVirtualization="True"
+                        EnableRowVirtualization="True"
+                        IsReadOnly="True"
+                        ItemsSource="{Binding PreviewPatients}"
+                        ScrollViewer.IsDeferredScrollingEnabled="True"
+                        VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                        VirtualizingPanel.ScrollUnit="Pixel"
+                        VirtualizingPanel.VirtualizationMode="Recycling">
+
+                        <DataGrid.Columns>
+                            <DataGridTextColumn
+                                Binding="{Binding PatientID}"
+                                Header="ID"
+                                IsReadOnly="True" />
+                            <DataGridTextColumn Binding="{Binding LastName}" Header="Фамилия" />
+                            <DataGridTextColumn Binding="{Binding FirstName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Header="Имя" />
+                            <DataGridTextColumn Binding="{Binding MiddleName}" Header="Отчество" />
+                            <DataGridTextColumn Binding="{Binding FullName}" Header="Полное имя" />
+                            <DataGridTextColumn Binding="{Binding BirthDate}" Header="Дата Рождения" />
+                            <DataGridTextColumn Binding="{Binding Sex}" Header="Пол" />
+                            <DataGridTextColumn Binding="{Binding Address}" Header="Адрес" />
+                            <DataGridTextColumn Binding="{Binding Comments}" Header="Доп. информация" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+
+            </Border>
+
+            <Border
+                x:Name="OutputText"
+                Grid.Row="5"
                 Grid.ColumnSpan="3"
                 Margin="0,5"
                 BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
-                BorderThickness="4">
+                BorderThickness="3">
 
                 <TextBox
                     MinHeight="40"
@@ -255,7 +309,7 @@
             </Border>
 
             <StackPanel
-                Grid.Row="5"
+                Grid.Row="6"
                 Grid.Column="1"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Bottom"
@@ -278,8 +332,9 @@
                     Content="Scan PACS"
                     IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=PACS}" />
             </StackPanel>
+
             <StackPanel
-                Grid.Row="5"
+                Grid.Row="6"
                 Grid.Column="2"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Bottom"
@@ -304,13 +359,16 @@
 
             <Grid
                 Grid.Row="0"
-                Grid.RowSpan="6"
+                Grid.RowSpan="7"
                 Grid.Column="0"
-                Grid.ColumnSpan="4"
+                Grid.ColumnSpan="3"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"
                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}">
-                <Border Background="White" Opacity=".7">
+                <Border
+                    Background="White"
+                    CornerRadius="1"
+                    Opacity="0.7">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                         <mah:ProgressRing
                             Width="100"
@@ -338,7 +396,6 @@
                     </StackPanel>
                 </Border>
                 <Button
-                    Width="100"
                     Height="25"
                     VerticalAlignment="Bottom"
                     Background="{DynamicResource MahApps.Brushes.AccentBase}"
