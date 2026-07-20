@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -28,6 +29,8 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         private ObservableCollection<PatientLiteDb> _previewPatients;
         private string _databasePath = string.Empty; 
         private CancellationTokenSource _cancellationTokenSource;
+        private PacsLoadingMode _loadingMode;
+        private DataSourceType _selectedDataSource;
 
 
         public ObservableCollection<PatientLiteDb> PreviewPatients
@@ -98,22 +101,49 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         [ObservableProperty]
         public partial bool CanCancel { get; set; }
 
+        public PacsLoadingMode LoadingMode
+        {
+            get => _loadingMode;
+            set
+            {
+                if (SetProperty(ref _loadingMode, value))
+                {
+                    UpdateLoadingModeDescription();
+                }
+            }
+        }
+
         [ObservableProperty]
-        public partial DataSourceType SelectedDataSource { get; set; } = DataSourceType.Folder;
+        public partial string CurrentLoadingMode { get; set; }
+
+        public DataSourceType SelectedDataSource
+        {
+            get => _selectedDataSource;
+            set
+            {
+                if (SetProperty(ref _selectedDataSource, value))
+                {
+                    OnPropertyChanged(nameof(IsFolderSource));
+                    OnPropertyChanged(nameof(IsPacsSource));
+                }
+            }
+        }
 
         public bool HasPreviewData => !string.IsNullOrWhiteSpace(DatabasePath) && PreviewPatients?.Any() == true;
+        public bool IsFolderSource => SelectedDataSource == DataSourceType.Folder;
+        public bool IsPacsSource => SelectedDataSource == DataSourceType.PACS;
 
 
 
         public DicomFileParserViewModel()
         {
-            var dbPath = Path.Combine(
-                "D:\\Develop\\DataBaseGenerator\\DataBaseGenerator\\bin\\Debug\\net9.0-windows10.0.17763.0\\LiteDataBase",
-                "patients.db");
-                                    
             _scanner = new DicomFileScanner();
             _localPacsSource = new LocalPacsSource();
             PreviewPatients = new();
+
+            SelectedDataSource = DataSourceType.Folder;
+            LoadingMode = PacsLoadingMode.Auto;
+            UpdateLoadingModeDescription();
         }
 
 
@@ -174,12 +204,14 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
         private async Task ScanFolderAsync()
         {
+            var stopwatch = Stopwatch.StartNew();
+
             PreviewPatients?.Clear();
             ScannedDicomFiles?.Clear();
 
             if (string.IsNullOrWhiteSpace(FolderPath))
             {
-                OutputText = "Please select a folder first.";
+                OutputText = "Пожалуйста, сначала выберите папку.";
                 return;
             }
 
@@ -189,19 +221,14 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             {
                 StartBusy();
 
-                var scanProgress = CreateProgress("Сканирование исследований ... ");
+                var scanProgress = CreateProgress();
 
                 ScannedDicomFiles = await _scanner.ScanFolderAsync(FolderPath, scanProgress, token);
                 PreviewPatients = new ObservableCollection<PatientLiteDb>(_scanner.PreviewPatients);
-
-                OutputText = $"Пациентов - [{_scanner.PatientsCount}], " +
-                    $"Исследований - [{_scanner.StudiesCount}]," +
-                    $" Серий - [{_scanner.SeriesCount}], " +
-                    $"Изибражений - [{_scanner.ImagesCount}].";
             }
             catch (OperationCanceledException)
             {
-                OutputText = "Scanning was cancelled.";
+                OutputText = "Сканирование было отменено.";
             }
             catch (Exception ex)
             {
@@ -209,7 +236,17 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             }
             finally
             {
+                stopwatch.Stop();
+                var elapsedTime = stopwatch.Elapsed;
+                var timeString = FormatTimeSpan(elapsedTime);
+
                 StopBusy();
+
+                OutputText = $"Пациентов - [{_scanner.PatientsCount}], " +
+                    $"Исследований - [{_scanner.StudiesCount}], " +
+                    $"Серий - [{_scanner.SeriesCount}], " +
+                    $"Изображений - [{_scanner.ImagesCount}]. Время выполнения: {timeString}";
+
                 _cancellationTokenSource?.Dispose();
                 _cancellationTokenSource = null;
             }
@@ -217,12 +254,14 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
         private async Task ScanDatasetAsync()
         {
+            var stopwatch = Stopwatch.StartNew();
+
             PreviewPatients?.Clear();
             ScannedDicomFiles?.Clear();
 
             if (_localPacsSource == null)
             {
-                OutputText = "Pacs client not connect";
+                OutputText = "Pacs клиент не подключается.";
                 return;
             }
 
@@ -230,13 +269,13 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
             try
             {
-                StartBusy();
+                StartBusy("Загрузка исследований ...");
 
-                var loadProgress = CreateProgress("Сканирование исследований ... ");
+                var loadProgress = CreateProgress();
 
                 if (!int.TryParse(PacsPort, out var port))
                 {
-                    OutputText = "Invalid PACS port.";
+                    OutputText = "Недопустимый порт PACS.";
                     return;
                 }
 
@@ -244,18 +283,36 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
                 if (client == null)
                 {
-                    OutputText = "Unable to create PACS client.";
+                    OutputText = "Не удается создать клиент PACS.";
                     return;
                 }
 
-                ScannedDicomFiles = await _localPacsSource.LoadDicomMetadataAsync(client, loadProgress, token);
+                switch (LoadingMode)
+                {
+                    case PacsLoadingMode.Fast:
+                        PercentShow = false;
+                        ScannedDicomFiles = await _localPacsSource.LoadDicomMetadataFastAsync(client, loadProgress, token);
+                        break;
 
-                PreviewPatients = _localPacsSource.PreviewPatients;
+                    case PacsLoadingMode.Compatible:
+                        ScannedDicomFiles = await _localPacsSource.LoadDicomMetadataAsync(client, loadProgress, token);
+                        break;
 
-                OutputText = $"Пациентов - [{_localPacsSource.PatientsCount}], " +
-                    $"Исследований - [{_localPacsSource.StudiesCount}]," +
-                    $" Серий - [{_localPacsSource.SeriesCount}], " +
-                    $"Изибражений - [{_localPacsSource.ImagesCount}].";
+                    case PacsLoadingMode.Auto:
+                    default:
+                        try
+                        {
+                            PercentShow = false;
+                            ScannedDicomFiles = await _localPacsSource.LoadDicomMetadataFastAsync(client, loadProgress, token);
+                        }
+                        catch (Exception ex)
+                        {
+                            CurrentLoadingMode = "Авто → Одиночный";
+                            OutputText = $"Не удалось загрузить {ex.Message}";
+                            ScannedDicomFiles = await _localPacsSource.LoadDicomMetadataAsync(client, loadProgress, token);
+                        }
+                        break;
+                }
             }
             catch (OperationCanceledException)
             {
@@ -263,11 +320,26 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             }
             catch (Exception ex)
             {
-                OutputText = $"Error: {ex.Message}";
+                OutputText = $"Ошибка: {ex.Message}";
             }
             finally
             {
+                PreviewPatients = _localPacsSource.PreviewPatients;
+
+                stopwatch.Stop();
+                var elapsedTime = stopwatch.Elapsed;
+                var timeString = FormatTimeSpan(elapsedTime);
+
                 StopBusy();
+
+                if (_localPacsSource.PatientsCount > 0 && !OutputText!.Contains("Ошибка"))
+                {
+                    OutputText = $"Пациентов - [{_localPacsSource.PatientsCount}], " +
+                    $"Исследований - [{_localPacsSource.StudiesCount}], " +
+                    $"Серий - [{_localPacsSource.SeriesCount}], " +
+                    $"Изображений - [{_localPacsSource.ImagesCount}]. Время выполнения: {timeString}";
+                }
+
                 _cancellationTokenSource?.Dispose();
                 _cancellationTokenSource = null;
             }
@@ -280,7 +352,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                 return;
 
             _cancellationTokenSource.Cancel();
-            OutputText = "Operation cancelled by user.";
+            OutputText = "Операция отменена пользователем.";
         }
 
         private IDicomClient CreateClient(string host, int port, string callingAe, string calledAe)
@@ -294,7 +366,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                     callingAe,
                     calledAe);
 
-                _logger.Info($"PACS client created: {PacsHost}:{PacsPort}");                
+                _logger.Info($"PACS client created: {PacsHost}:{PacsPort}");
 
                 return client;
             }
@@ -320,26 +392,26 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
                 using var databaseService = CreateDatabaseService();
 
-                var saveProgress = CreateProgress ($"Сохранение в БД ... ");
+                var saveProgress = CreateProgress();
 
-                OutputText = "Saving in DB ...";
+                OutputText = "Сохранение в БД ...";
 
                 await Task.Run(() =>
                 {
                     databaseService.SaveToDatabase(ScannedDicomFiles, saveProgress, token);
                 }, token);
 
-                OutputText = $"Completed! Saved {ScannedDicomFiles.Count} files.";
+                OutputText = $"Завершено! Сохраненно {ScannedDicomFiles.Count} файл(ов).";
             }
             catch (OperationCanceledException)
             {
-                OutputText = "Saving was cancelled.";
+                OutputText = "Сохранение было отменено.";
             }
             catch (Exception ex)
             {
-                OutputText = $"Error parsing {ScannedDicomFiles.Count}: {ex.Message}";
+                OutputText = $"Ошибка парсинга файлов {ScannedDicomFiles.Count}: {ex.Message}";
             }
-            finally 
+            finally
             {
                 StopBusy();
                 _cancellationTokenSource?.Dispose();
@@ -355,7 +427,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
             PreviewPatients = new();
             ScannedDicomFiles = new();
-            OutputText = $"Preview is clear.";
+            OutputText = $"Предварительный просмотр очищен.";
             OnPropertyChanged(nameof(HasPreviewData));
         }
 
@@ -364,26 +436,26 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         {
             if (string.IsNullOrWhiteSpace(PacsHost) || string.IsNullOrWhiteSpace(PacsPort))
             {
-                OutputText = "Please enter Host and Port.";
+                OutputText = "Пожалуйста, введите Хост и Порт.";
                 EchoStatus = OutputText;
                 return;
             }
 
-            OutputText = "Connecting...";
+            OutputText = "Соединение ...";
             EchoStatus = OutputText;
 
             try
             {
                 if (!int.TryParse(PacsPort, out var port))
                 {
-                    OutputText = "Invalid PACS port.";
+                    OutputText = "Недопустимый порт PACS.";
                     return;
                 }
                 var client = CreateClient(PacsHost, port, CallingAe, CalledAe);
 
                 if (client == null)
                 {
-                    OutputText = "Unable to create PACS client.";
+                    OutputText = "Не удается создать клиент PACS.";
                     return;
                 }
 
@@ -391,12 +463,12 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                 await client.AddRequestAsync(echoRequest);
                 await client.SendAsync();
 
-                OutputText = $"PacS - [ {CalledAe} ] connection successful! ({PacsHost} : {PacsPort})";
+                OutputText = $"PacS - [ {CalledAe} ] подключился успешно! ({PacsHost} : {PacsPort})";
                 EchoStatus = OutputText;
             }
             catch (Exception ex)
             {
-                OutputText = $"Error: {ex.Message}";
+                OutputText = $"Ошибка: {ex.Message}";
                 EchoStatus = OutputText;
             }
         }
@@ -427,12 +499,12 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             return DatabasePathShort;
         }
 
-        private IProgress<int> CreateProgress(string message)
+        private IProgress<(int Percent, string Message)> CreateProgress()
         {
-            return new Progress<int>(percent =>
+            return new Progress<(int Percent, string Message)>(percent =>
             {
-                CurrentProgress = percent;
-                BusyMessage = message;
+                CurrentProgress = percent.Percent;
+                BusyMessage = percent.Message;
             });
         }
 
@@ -444,7 +516,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             return _cancellationTokenSource.Token;
         }
 
-        private void StartBusy(string message = "Загрузка...", bool percentShow = true)
+        private void StartBusy(string message = "Загрузка ...", bool percentShow = true)
         {
             BusyMessage = message;
             CurrentProgress = 0;
@@ -461,6 +533,36 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             CanCancel = IsBusy;
             CurrentProgress = 0;
             OnPropertyChanged(nameof(HasPreviewData));
+        }
+
+        private string FormatTimeSpan(TimeSpan time)
+        {
+            if (time.TotalHours >= 1)
+            {
+                return $"{time.Hours} ч {time.Minutes} мин {time.Seconds} сек";
+            }
+            if (time.TotalMinutes >= 1)
+            {
+                return $"{time.Minutes} мин {time.Seconds} сек";
+            }
+            return $"{time.TotalSeconds:F1} сек";
+        }
+
+        private void UpdateLoadingModeDescription()
+        {
+            CurrentLoadingMode = LoadingMode switch
+            {
+                PacsLoadingMode.Auto =>
+                    "Автоматически выбирается быстрый режим сканирования.",
+
+                PacsLoadingMode.Fast =>
+                    "Один C-FIND запрос, но поддерживается не всеми PACS.",
+
+                PacsLoadingMode.Compatible =>
+                    "Поэтапная загрузка. Совместим со всеми PACS",
+
+                _ => string.Empty
+            };
         }
     }
 }
