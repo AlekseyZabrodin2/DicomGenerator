@@ -1,45 +1,50 @@
 ﻿using System.Collections.Generic;
+using System.Threading;
 using FellowOakDicom;
 
 namespace DicomGenerator.Core.DicomGeneratorModels
 {
     public class PatientGenerator
     {
-        public IEnumerable<DicomDataset> Generate(
-            PatientGeneratorParameters patientGeneratorParameters)
+        public IEnumerable<DicomDataset> Generate(int patientIndex,
+            PatientGeneratorParameters patientGeneratorParameters,
+            CancellationToken cancellationToken = default)
         {
             var dataSets = new List<DicomDataset>();
 
-            for (var patientIndex = 0; patientIndex < patientGeneratorParameters.PatientsCount; patientIndex++)
+            var patientIod = GeneratePatientIod(patientIndex, patientGeneratorParameters, cancellationToken);
+            var studyGenerator = new StudyGenerator();
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            foreach (var studyParameters in patientGeneratorParameters.StudyGeneratorParameters)
             {
-                //Generate PatientIod
-                var patientIod = GeneratePatientIod(patientIndex, patientGeneratorParameters);
-                var studyGenerator = new StudyGenerator();
+                cancellationToken.ThrowIfCancellationRequested();
 
-                foreach (var studyParameters in patientGeneratorParameters.StudyGeneratorParameters)
-                {
-                    dataSets.AddRange(studyGenerator.Generate(patientIod, studyParameters));
-                }
+                dataSets.AddRange(studyGenerator.Generate(patientIod, studyParameters));
             }
-
             return dataSets;
         }
 
-        private DicomDataset GeneratePatientIod(int patientIndex, PatientGeneratorParameters patientGeneratorParameters)
+        private DicomDataset GeneratePatientIod(int patientIndex, 
+            PatientGeneratorParameters patientGeneratorParameters,
+            CancellationToken cancellationToken = default)
         {
             var dataset = new DicomDataset();
 
-            CreatePatientModuleRequied(dataset, patientIndex, patientGeneratorParameters);
-
-            CreatePatientModuleOptional(dataset, patientIndex, patientGeneratorParameters);
-
-            CreatePatientStudyModule(dataset, patientIndex, patientGeneratorParameters);
+            CreatePatientModuleRequied(dataset, patientIndex, patientGeneratorParameters, cancellationToken);
+            CreatePatientModuleOptional(dataset, patientGeneratorParameters, cancellationToken);
+            CreatePatientStudyModule(dataset, patientGeneratorParameters, cancellationToken);
 
             return dataset;
         }
 
-        private void CreatePatientModuleRequied(DicomDataset dataset, int patientIndex, PatientGeneratorParameters patientGeneratorParameters)
+        private void CreatePatientModuleRequied(DicomDataset dataset, int patientIndex, 
+            PatientGeneratorParameters patientGeneratorParameters,
+            CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             dataset.AddOrUpdate(DicomTag.SpecificCharacterSet, patientGeneratorParameters.DicomEncodingRule.Generate());
 
             dataset.AddOrUpdate(DicomTag.PatientName, patientGeneratorParameters.NameRule.Generate());
@@ -51,18 +56,26 @@ namespace DicomGenerator.Core.DicomGeneratorModels
             dataset.AddOrUpdate(DicomTag.PatientTelephoneNumbers, patientGeneratorParameters.PatientRandomTelephone.Generate());
         }
 
-        private void CreatePatientModuleOptional(DicomDataset dataset, int patientIndex, PatientGeneratorParameters patientGeneratorParameters)
+        private void CreatePatientModuleOptional(DicomDataset dataset, 
+            PatientGeneratorParameters patientGeneratorParameters,
+            CancellationToken cancellationToken = default)
         {
             if (patientGeneratorParameters.EthnicGroupRule != null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 dataset.AddOrUpdate(DicomTag.EthnicGroup, patientGeneratorParameters.EthnicGroupRule.Generate());
             }
         }
 
-        private void CreatePatientStudyModule(DicomDataset dataset, int patientIndex, PatientGeneratorParameters patientGeneratorParameters)
+        private void CreatePatientStudyModule(DicomDataset dataset, 
+            PatientGeneratorParameters patientGeneratorParameters,
+            CancellationToken cancellationToken = default)
         {
             if (patientGeneratorParameters.PatientAge != null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 dataset.AddOrUpdate(DicomTag.PatientAge, patientGeneratorParameters.PatientAge.Generate());
             }
         }
