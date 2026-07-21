@@ -1,21 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using DicomGenerator.Core.DicomGeneratorModels;
 
 namespace DicomGenerator.Core.GeneratorRules.Patient
 {
     public class PatientAddressRule : IGeneratorRule<string>
     {
-        public PatientAddressRule(string getAdressPatient)
+        public string GetAddressPatient { get; }
+
+        public PatientAddressRule(string getAddressPatient)
         {
-            GetAdressPatient = getAdressPatient;
+            GetAddressPatient = getAddressPatient;
         }
-
-        public string GetAdressPatient { get; }
-
 
         private static readonly IDictionary<int, string> _rusAddress = new Dictionary<int, string>
         {
@@ -30,9 +26,9 @@ namespace DicomGenerator.Core.GeneratorRules.Patient
         {
             var random = new Random();
 
-            if (GetAdressPatient != null)
+            if (GetAddressPatient != null)
             {
-                return GetAdressPatient;
+                return GetAddressPatient;
             }
 
             return _rusAddress[random.Next(0, _rusAddress.Count)];

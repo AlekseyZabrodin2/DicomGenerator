@@ -80,7 +80,7 @@ namespace DicomGenerator.Core.GeneratorRules.Sop
             if (_fileInfoDictionary.TryGetValue(SopClassUid.DxPresentation, out var files))
             {
                 var random = new Random();
-                var file = files[random.Next(0, files.Count - 1)];
+                var file = files[random.Next(files.Count)];
 
                 CopyImageDatasetFromFile(file, dataset);
             }
@@ -96,7 +96,7 @@ namespace DicomGenerator.Core.GeneratorRules.Sop
             if (_fileInfoDictionary.TryGetValue(SopClassUid.MgPresentation, out var files))
             {
                 var random = new Random();
-                var file = files[random.Next(0, files.Count - 1)];
+                var file = files[random.Next(files.Count)];
 
                 CopyImageDatasetFromFile(file, dataset);
             }
@@ -112,7 +112,7 @@ namespace DicomGenerator.Core.GeneratorRules.Sop
             if (_fileInfoDictionary.TryGetValue(SopClassUid.SrBasic, out var files))
             {
                 var random = new Random();
-                var file = files[random.Next(0, files.Count - 1)];
+                var file = files[random.Next(files.Count)];
 
                 CopyTextDatasetFromFile(file,dataset);
             }

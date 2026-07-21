@@ -38,7 +38,7 @@ namespace DicomGenerator.Core.GeneratorRules.Patient
                 }
             }
 
-            var selectGender = _patientSex[random.Next(0, _patientSex.Count)];
+            var selectGender = _patientSex[random.Next(_patientSex.Count)];
 
             return selectGender;
         }
