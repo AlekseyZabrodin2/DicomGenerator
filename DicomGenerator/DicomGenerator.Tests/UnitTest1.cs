@@ -1,16 +1,14 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
 using System.Text;
+using DicomGenerator.Core.DicomGeneratorModels;
 using DicomGenerator.Core.GeneratorRules._3_Series;
-using DicomGenerator.Core.GeneratorRules.Series;
 using DicomGenerator.Core.GeneratorRules.Patient;
+using DicomGenerator.Core.GeneratorRules.Series;
 using DicomGenerator.Core.GeneratorRules.Sop;
 using DicomGenerator.Core.GeneratorRules.Study;
 using FellowOakDicom;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using DicomGenerator.Core.DicomGeneratorModels;
 
 namespace DicomGenerator.Tests
 {
@@ -29,8 +27,7 @@ namespace DicomGenerator.Tests
                         new SopClassUidRule(new SopClassFactory(@"D:\Develop\DicomGeneratorTestData\")))
                     {
                         SopCount = 1
-                    }
-                )
+                    })
            {
                SeriesCount = 1
            };
@@ -44,8 +41,7 @@ namespace DicomGenerator.Tests
                         new SopClassUidRule(new SopClassFactory(@"D:\Develop\DicomGeneratorTestData\")))
                     {
                         SopCount = 0
-                    }
-                )
+                    })
             {
                 SeriesCount = 1
             };
@@ -59,8 +55,7 @@ namespace DicomGenerator.Tests
                             new SopClassUidRule(new SopClassFactory(@"D:\Develop\DicomGeneratorTestData\")))
                     {
                         SopCount = 0
-                    }
-                )
+                    })
             {
                 SeriesCount = 1
             };
@@ -68,8 +63,7 @@ namespace DicomGenerator.Tests
             var studyParameters = new StudyGeneratorParameters(
                 new RangeStudyDateTimeRule(DateTime.Now, DateTime.Now.AddDays(10)),
                 new RandomAccessionNumberRule(),
-                new List<SerieGeneratorParameters>{serieParametersDx,serieParametersMg,serieParametersSr}
-            )
+                new List<SerieGeneratorParameters>{serieParametersDx,serieParametersMg,serieParametersSr})
             {
                 StudiesCount = 1
             };
@@ -83,8 +77,7 @@ namespace DicomGenerator.Tests
                 new PatientCommentsRule("Zdorov"),
                 new PatientTelephoneRule(654564),
                 new RandomPatientBirthDateRule(new DateTime(), true),
-                new List<StudyGeneratorParameters>{studyParameters}
-            )
+                new List<StudyGeneratorParameters>{studyParameters})
             {
                 PatientsCount = 1,
                 EthnicGroupRule = new ListEthnicGroupRule(),
@@ -92,24 +85,20 @@ namespace DicomGenerator.Tests
             };
 
             var patientGenerator = new PatientGenerator();
-            var dataSets =
-                patientGenerator.Generate(patientParameters);
+            var dataSets = patientGenerator.Generate(patientParameters.PatientsCount, patientParameters);
 
             foreach (var dataset in dataSets)
             {
                 var dicomFIle = new DicomFile(dataset);
                 dicomFIle.Save(Guid.NewGuid().ToString());
             }
-
         }
 
         [TestMethod]
         public void GenerateName()
         {
             var name = new RandomNameRule("Stepler", "Geka", "Olegovich");
-
             var result = name.Generate();
-
 
             Console.WriteLine(name);
         }
@@ -118,9 +107,7 @@ namespace DicomGenerator.Tests
         public void GenerateLaterality()
         {
             var laterality = new SeriesLateralityRule();
-
             var result = laterality.Generate();
-
 
             Console.WriteLine(result);
         }
@@ -129,25 +116,18 @@ namespace DicomGenerator.Tests
         public void GenerateStudyDate()
         {
           var studyDate = new RangeStudyDateTimeRule(DateTime.MinValue, DateTime.MaxValue);
-
           var study = studyDate.Generate();
 
-          Console.WriteLine(study);
-          
+          Console.WriteLine(study);          
         }
 
         [TestMethod]
         public void GenerateSerialTime()
         {
-            //var seriasTime = new RangeSeriesDateTimeRule();
-
             var studyTime = new RangeSeriesDateTimeRule(DateTime.MinValue, DateTime.MaxValue);
-
             var seriasTime = studyTime.Generate();
-
 
             Console.WriteLine(seriasTime);
         }
     }
 }
-
