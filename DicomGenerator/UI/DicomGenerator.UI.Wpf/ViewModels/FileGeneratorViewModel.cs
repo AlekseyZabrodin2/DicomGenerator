@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -28,8 +30,8 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         private SerieGeneratorParameters _serieParametersDx;
         private SopGeneratorParameters _sopGeneratorParameters;
         private DicomEncodingRule _defaultEncoding = new DicomEncodingRule(Encoding.UTF8);
+        private CancellationTokenSource _cancellationTokenSource;
         public bool _useBirthDatePatient;
-        private string? _gender; 
         public int _sumCounts;
         private readonly string _pathToSave = @"D:\DicomGeneratorResult";
 
@@ -46,13 +48,28 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         public ObservableCollection<DicomEncodingRule> Encodings { get; }
 
         [ObservableProperty]
-        public partial Visibility IsVisible { get; set; }
+        public partial bool IsBusy { get; set; }
+
+        [ObservableProperty]
+        public partial string BusyMessage { get; set; }
+
+        [ObservableProperty]
+        public partial int CurrentProgress { get; set; }
+
+        [ObservableProperty]
+        public partial bool PercentShow { get; set; }
+
+        [ObservableProperty]
+        public partial bool CanCancel { get; set; }
+
+        [ObservableProperty]
+        public partial bool WasException { get; set; }
 
         [ObservableProperty]
         public partial DicomEncodingRule ChooseCod { get; set; }
 
         [ObservableProperty]
-        public partial List<string> GenderPatient { get; set; }
+        public partial List<GenderItem> GenderPatient { get; set; }
 
         [ObservableProperty]
         public partial bool UsePeriodBirthDatePatient { get; set; }
@@ -109,69 +126,40 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         public partial string MiddleNamePatient { get; set; }
 
         [ObservableProperty]
-        public partial string AdressPatient { get; set; }
+        public partial string AddressPatient { get; set; }
 
         [ObservableProperty]
         public partial int PhonePatient { get; set; }
 
         [ObservableProperty]
-        public partial string WorkPlasePatient { get; set; }
+        public partial string WorkPlacePatient { get; set; }
 
         [ObservableProperty]
         public partial string InfoPatient { get; set; }
 
 
         [ObservableProperty]
-        public partial string UpdateText { get; set; }
-
-
-
+        public partial string OutputText { get; set; }
+                
         public bool UseBirthDatePatient
         {
             get => _useBirthDatePatient;
             set
             {
-                UsePeriodBirthDatePatient = _useBirthDatePatient;
+                UsePeriodBirthDatePatient = !value;
                 SetProperty(ref _useBirthDatePatient, value);
             }
         }
 
-        public string? SelectedGender
-        {
-            get => _gender;
-
-            set
-            {
-                if (value == GenderPatient[0])
-                {
-                    value = "M";
-                }
-                else if (value == GenderPatient[1])
-                {
-                    value = "F";
-                }
-                else if (value == GenderPatient[2])
-                {
-                    value = "O";
-                }
-                else if (value == GenderPatient[3])
-                {
-                    value = null;
-                }
-                SetProperty(ref _gender, value);
-            }
-        }
-
-
-
-
-
-
+        [ObservableProperty]
+        public partial GenderItem? SelectedGender { get; set; }
 
 
 
         public FileGeneratorViewModel()
         {
+            InitialiseProperties();
+
             Encodings = new ObservableCollection<DicomEncodingRule>
             {
                 new DicomEncodingRule(Encoding.Latin1),
@@ -180,17 +168,21 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             };
 
             ChooseCod = _defaultEncoding;
-
-            IsVisible = Visibility.Collapsed;
-
-            InitialiseProperties();
         }
 
 
 
         private void InitialiseProperties()
         {
-            GenderPatient = new List<string> { "Man", "Female", "Other", "string - Empty" };
+            GenderPatient = new()
+            {
+                new GenderItem { DisplayName = "Man",    Code = "M" },
+                new GenderItem { DisplayName = "Female", Code = "F" },
+                new GenderItem { DisplayName = "Other",  Code = "O" },
+                new GenderItem { DisplayName = "Empty",  Code = null }
+            };
+
+            SelectedGender = GenderPatient[3];
             UseBirthDatePatient = false;
             UsePeriodBirthDatePatient = !UseBirthDatePatient;
             BirthDatePatient = DateTime.Now;
@@ -215,86 +207,84 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         [RelayCommand]
         private async Task GenerateFiles()
         {
-            IsVisible = Visibility.Visible;
+            var stopwatch = Stopwatch.StartNew();
 
-            await Task.Factory.StartNew(() =>
+            var token = CreateCancellationToken();
+
+            var processed = 0;
+
+            try
             {
+                StartBusy("Генерация файлов ...");
+                
+                var progress = CreateProgress();
 
-                _serieParametersDx = new SerieGeneratorParameters(
-              new SeriesLateralityRule(),
-              Modality.Dx,
-              new SeriesNumberRule(),
-              new RangeSeriesDateTimeRule(StartTimePatient, EndTimePatient),
-              new SopGeneratorParameters(
-                  new SopClassUidRule(new SopClassFactory(_pathToTestData)))
-              {
-                  SopCount = SopDxCount
-              })
-                { SeriesCount = SetSeriesCount };
-
-
-                _serieParametersMg = new SerieGeneratorParameters(
-                    new SeriesLateralityRule(),
-                    Modality.Mg,
-                    new SeriesNumberRule(),
-                    new RangeSeriesDateTimeRule(StartTimePatient, EndTimePatient),
-                    new SopGeneratorParameters(
-                        new SopClassUidRule(new SopClassFactory(_pathToTestData)))
-                    {
-                        SopCount = SopMgCount
-                    })
-                { SeriesCount = SetSeriesCount };
-
-                _serieParametersSr = new SerieGeneratorParameters(
-                    new SeriesLateralityRule(),
-                    Modality.Sr,
-                    new SeriesNumberRule(),
-                    new RangeSeriesDateTimeRule(StartTimePatient, EndTimePatient),
-                    new SopGeneratorParameters(
-                        new SopClassUidRule(new SopClassFactory(_pathToTestData)))
-                    {
-                        SopCount = SopSrCount
-                    })
-                { SeriesCount = SetSeriesCount };
-
-
-                _studyParameters = new StudyGeneratorParameters(
-                    new RangeStudyDateTimeRule(StartDatePatient, EndDatePatient),
-                    new RandomAccessionNumberRule(),
-                    new List<SerieGeneratorParameters>() { _serieParametersDx, _serieParametersMg, _serieParametersSr });
-
-                _patientParameters = new PatientGeneratorParameters(
-                    ChooseCod,
-                    new RandomNameRule(LastNamePatient, NamePatient, MiddleNamePatient),
-                    new OrderedIdRule(IdPatient),
-                    new RandomSexRule(SelectedGender),
-                    new PatientAddressRule(AdressPatient),
-                    new PatientCommentsRule(InfoPatient),
-                    new PatientTelephoneRule(PhonePatient),
-                    new RandomPatientBirthDateRule(SelectedPatientBirthDate(), UsePeriodBirthDatePatient),
-                    new List<StudyGeneratorParameters>() { _studyParameters }
-                )
+                await Task.Run(() =>
                 {
-                    EthnicGroupRule = new ListEthnicGroupRule(),
-                    PatientAge = new PatientAgeRule(),
-                    PatientsCount = SetPatientsCount
-                };
 
-                _patientParameters.PatientsCount = SetPatientsCount;
-                _studyParameters.StudiesCount = SetStudiesCount;
-                _serieParametersDx.SeriesCount = SetSeriesCount;
-                _serieParametersMg.SeriesCount = SetSeriesCount;
-                _serieParametersSr.SeriesCount = SetSeriesCount;
+                    _serieParametersDx = new SerieGeneratorParameters(
+                      new SeriesLateralityRule(),
+                      Modality.Dx,
+                      new SeriesNumberRule(),
+                      new RangeSeriesDateTimeRule(StartTimePatient, EndTimePatient),
+                      new SopGeneratorParameters(new SopClassUidRule(new SopClassFactory(_pathToTestData)))
+                      {
+                          SopCount = SopDxCount
+                      })
+                    { SeriesCount = SetSeriesCount };
 
-                _sumCounts = SetPatientsCount * (SetStudiesCount * (SetSeriesCount * (SopDxCount + SopMgCount + SopSrCount)));
+                    _serieParametersMg = new SerieGeneratorParameters(
+                        new SeriesLateralityRule(),
+                        Modality.Mg,
+                        new SeriesNumberRule(),
+                        new RangeSeriesDateTimeRule(StartTimePatient, EndTimePatient),
+                        new SopGeneratorParameters(new SopClassUidRule(new SopClassFactory(_pathToTestData)))
+                        {
+                            SopCount = SopMgCount
+                        })
+                    { SeriesCount = SetSeriesCount };
 
-                _patientGenerator = new PatientGenerator();
+                    _serieParametersSr = new SerieGeneratorParameters(
+                        new SeriesLateralityRule(),
+                        Modality.Sr,
+                        new SeriesNumberRule(),
+                        new RangeSeriesDateTimeRule(StartTimePatient, EndTimePatient),
+                        new SopGeneratorParameters(new SopClassUidRule(new SopClassFactory(_pathToTestData)))
+                        {
+                            SopCount = SopSrCount
+                        })
+                    { SeriesCount = SetSeriesCount };
 
-                var dataSets = _patientGenerator.Generate(_patientParameters);
+                    _studyParameters = new StudyGeneratorParameters(
+                        new RangeStudyDateTimeRule(StartDatePatient, EndDatePatient),
+                        new RandomAccessionNumberRule(),
+                        new List<SerieGeneratorParameters>() { _serieParametersDx, _serieParametersMg, _serieParametersSr });
 
-                foreach (var dataset in dataSets)
-                {
-                    var dicomFIle = new DicomFile(dataset);
+                    _patientParameters = new PatientGeneratorParameters(
+                        ChooseCod,
+                        new RandomNameRule(LastNamePatient, NamePatient, MiddleNamePatient),
+                        new OrderedIdRule(IdPatient),
+                        new RandomSexRule(SelectedGender.Code),
+                        new PatientAddressRule(AddressPatient),
+                        new PatientCommentsRule(InfoPatient),
+                        new PatientTelephoneRule(PhonePatient),
+                        new RandomPatientBirthDateRule(SelectedPatientBirthDate(), UsePeriodBirthDatePatient),
+                        new List<StudyGeneratorParameters>() { _studyParameters })
+                    {
+                        EthnicGroupRule = new ListEthnicGroupRule(),
+                        PatientAge = new PatientAgeRule(),
+                        PatientsCount = SetPatientsCount
+                    };
+
+                    _patientParameters.PatientsCount = SetPatientsCount;
+                    _studyParameters.StudiesCount = SetStudiesCount;
+                    _serieParametersDx.SeriesCount = SetSeriesCount;
+                    _serieParametersMg.SeriesCount = SetSeriesCount;
+                    _serieParametersSr.SeriesCount = SetSeriesCount;
+
+                    _sumCounts = SetPatientsCount * (SetStudiesCount * (SetSeriesCount * (SopDxCount + SopMgCount + SopSrCount)));
+
+                    _patientGenerator = new PatientGenerator();
 
                     DirectoryInfo directoryInfo = new DirectoryInfo(_pathToSave);
 
@@ -305,23 +295,61 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                         directoryInfo.Create();
                     }
 
-                    dicomFIle.Save(Path.Combine(_pathToSave, Guid.NewGuid().ToString()));
+                    progress?.Report((0, "Генерация файлов ..."));
 
-                }
+                    var total = _patientParameters.PatientsCount;
 
-                if (_sumCounts == 1)
-                {
-                    UpdateText = $"Done, generated {_sumCounts} file !!!";
-                }
+                    for (var patientIndex = 0; patientIndex < total; patientIndex++)
+                    {
+                        var dataSets = _patientGenerator.Generate(patientIndex, _patientParameters, token);
 
-                if (_sumCounts > 1)
-                {
-                    UpdateText = $"Done, generated {_sumCounts} files !!!";
-                }
+                        foreach (var dataset in dataSets)
+                        {
+                            var dicomFIle = new DicomFile(dataset);
 
-                IsVisible = Visibility.Collapsed;
+                            dicomFIle.Save(Path.Combine(_pathToSave, Guid.NewGuid().ToString()));                            
+                        }
 
-            });
+                        processed++;
+                        var percent = (int)((double)processed * 100 / total);
+                        progress?.Report((percent, string.Empty));
+                    }
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                WasException = true;
+                OutputText = $"Генерация была отменена, сгенерировано {processed} файлов.";
+            }
+            catch (Exception ex)
+            {
+                WasException = true;
+                OutputText = ex.Message;
+            }
+            finally
+            {
+                stopwatch.Stop();
+                var elapsedTime = stopwatch.Elapsed;
+                var timeString = FormatTimeSpan(elapsedTime);
+
+                StopBusy();
+                if(!WasException)
+                    OutputText = $"Выполнено, сгенерировано {_sumCounts} фалов.  Время выполнения: {timeString}";
+
+                _cancellationTokenSource?.Dispose();
+                _cancellationTokenSource = null;
+                WasException = false;
+            }
+        }
+
+        [RelayCommand]
+        private void Cancel()
+        {
+            if (_cancellationTokenSource == null)
+                return;
+
+            _cancellationTokenSource.Cancel();
+            OutputText = "Операция отменена пользователем.";
         }
 
         [RelayCommand]
@@ -344,7 +372,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             BirthDatePatient = DateTime.Now;
             PeriodBirthDatePatient = DateTime.Now.AddYears(-50);
 
-            AdressPatient = string.Empty;
+            AddressPatient = string.Empty;
             PhonePatient = 0;
             InfoPatient = string.Empty;
 
@@ -356,7 +384,55 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
             ChooseCod = _defaultEncoding;
 
-            UpdateText = "All fields are cleared !!!";
+            OutputText = "All fields are cleared !!!";
+        }
+
+        private IProgress<(int Percent, string Message)> CreateProgress()
+        {
+            return new Progress<(int Percent, string Message)>(percent =>
+            {
+                CurrentProgress = percent.Percent;
+                BusyMessage = percent.Message;
+            });
+        }
+
+        private string FormatTimeSpan(TimeSpan time)
+        {
+            if (time.TotalHours >= 1)
+            {
+                return $"{time.Hours} ч {time.Minutes} мин {time.Seconds} сек";
+            }
+            if (time.TotalMinutes >= 1)
+            {
+                return $"{time.Minutes} мин {time.Seconds} сек";
+            }
+            return $"{time.TotalSeconds:F1} сек";
+        }
+
+        private CancellationToken CreateCancellationToken()
+        {
+            _cancellationTokenSource?.Dispose();
+
+            _cancellationTokenSource = new CancellationTokenSource();
+            return _cancellationTokenSource.Token;
+        }
+
+        private void StartBusy(string message = "Загрузка ...", bool percentShow = true)
+        {
+            BusyMessage = message;
+            CurrentProgress = 0;
+            IsBusy = true;
+            CanCancel = IsBusy;
+            PercentShow = percentShow;
+        }
+
+        private void StopBusy()
+        {
+            IsBusy = false;
+            BusyMessage = string.Empty;
+            PercentShow = false;
+            CanCancel = IsBusy;
+            CurrentProgress = 0;
         }
     }
 }
