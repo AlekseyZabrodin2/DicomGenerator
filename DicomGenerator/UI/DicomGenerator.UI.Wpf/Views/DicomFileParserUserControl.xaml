@@ -253,8 +253,8 @@
             <Border
                 Grid.Row="4"
                 Grid.ColumnSpan="3"
-                BorderThickness="3"
-                BorderBrush="{DynamicResource MahApps.Brushes.Accent}">
+                BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
+                BorderThickness="3">
                 <Grid Name="PatientTable">
                     <DataGrid
                         Name="ViewAllPatient"
