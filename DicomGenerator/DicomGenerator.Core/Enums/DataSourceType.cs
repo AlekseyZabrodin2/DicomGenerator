@@ -2,6 +2,7 @@
 {
     public enum DataSourceType
     {
+        All,
         Folder,
         PACS
     }
