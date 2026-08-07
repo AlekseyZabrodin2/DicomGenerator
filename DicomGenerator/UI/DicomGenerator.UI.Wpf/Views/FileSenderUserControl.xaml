@@ -2,6 +2,7 @@
     x:Class="DicomGenerator.UI.Wpf.Views.FileSenderUserControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:convert="clr-namespace:DicomGenerator.UI.Wpf.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:DicomGenerator.UI.Wpf.Views"
     xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
@@ -11,17 +12,19 @@
     mc:Ignorable="d">
 
 
+    <UserControl.Resources>
+        <convert:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </UserControl.Resources>
+
+
     <Border
         Grid.Row="0"
         BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
         BorderThickness="4">
 
-        <Grid
-            Width="500"
-            VerticalAlignment="Center"
-            ShowGridLines="True">
+        <Grid>
 
-            <StackPanel>
+            <StackPanel Width="500" VerticalAlignment="Center">
 
                 <Grid x:Name="ConnectingBlock" Margin="5,0,5,0">
 
@@ -126,7 +129,7 @@
                 </Border>
 
                 <Grid x:Name="ButtonsBlock">
-                    <Grid.ColumnDefinitions>
+                    <!--<Grid.ColumnDefinitions>
                         <ColumnDefinition />
                         <ColumnDefinition />
                     </Grid.ColumnDefinitions>
@@ -137,14 +140,14 @@
                         HorizontalAlignment="Right"
                         Background="{DynamicResource MahApps.Brushes.Accent}"
                         Command="{Binding CancaelSendingImageCommand}"
-                        Content="Cancel" />
+                        Content="Cancel" />-->
 
                     <Button
                         Grid.Column="1"
                         Width="70"
                         Height="40"
                         Margin="10"
-                        HorizontalAlignment="Left"
+                        HorizontalAlignment="Center"
                         Background="{DynamicResource MahApps.Brushes.Accent}"
                         Command="{Binding SendDicomImageCommand}"
                         Content="Move File" />
@@ -155,17 +158,47 @@
             <Grid
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"
-                Visibility="{Binding IsVisible}">
+                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}">
 
-                <Border Background="White" Opacity=".7">
+                <Border
+                    Background="Black"
+                    CornerRadius="1"
+                    Opacity="0.7">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <mah:ProgressRing
+                            Width="100"
+                            Height="100"
+                            Foreground="{DynamicResource MahApps.Brushes.AccentBase}"
+                            IsActive="{Binding IsBusy}" />
 
+                        <TextBlock
+                            Margin="0,-60,0,0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Top"
+                            FontSize="20"
+                            FontWeight="Bold"
+                            Foreground="{DynamicResource MahApps.Brushes.AccentBase}"
+                            Text="{Binding CurrentProgress, StringFormat='{}{0}%'}" />
 
-                    <mah:ProgressRing
-                        Width="100"
-                        Height="100"
-                        Foreground="{DynamicResource MahApps.Brushes.AccentBase}" />
-
+                        <TextBlock
+                            Margin="0,30,0,0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            FontSize="18"
+                            Foreground="{DynamicResource MahApps.Brushes.AccentBase}"
+                            Text="{Binding BusyMessage}" />
+                    </StackPanel>
                 </Border>
+
+                <Button
+                    Width="70"
+                    Height="40"
+                    Margin="10"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Bottom"
+                    Background="{DynamicResource MahApps.Brushes.Accent}"
+                    Command="{Binding CancaelSendingImageCommand}"
+                    Content="Cancel" />
             </Grid>
         </Grid>
     </Border>

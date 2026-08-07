@@ -1,8 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FellowOakDicom;
@@ -31,13 +32,19 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         public partial string CalledAe { get; set; }
 
         [ObservableProperty]
-        public partial string ServerOutputText { get; set; }       
+        public partial string ServerOutputText { get; set; }
 
         [ObservableProperty]
         public partial string FolderPathShort { get; set; }
 
         [ObservableProperty]
-        public partial Visibility IsVisible { get; set; }
+        public partial bool IsBusy { get; set; }
+
+        [ObservableProperty]
+        public partial string BusyMessage { get; set; }
+
+        [ObservableProperty]
+        public partial int CurrentProgress { get; set; }
 
         public string FolderPathFull
         {
@@ -54,8 +61,6 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
         public FileSenderViewModel()
         {
-            IsVisible = Visibility.Collapsed;
-
             InitialiseServerConnectingProperty();
         }
 
@@ -64,63 +69,87 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         private void InitialiseServerConnectingProperty()
         {
             ServerIp = "127.0.0.1";
-            ServerPort = 55100;
+            //ServerPort = 55100;
+            ServerPort = 4242;
             CallingAe = "UniExpert";
-            CalledAe = "LocalScp";
-            FolderPathFull = "D:\\DicomGeneratorResult\\";
+            //CalledAe = "LocalScp";
+            CalledAe = "Orthanc";
+            //FolderPathFull = "D:\\DicomGeneratorResult\\";
+            FolderPathFull = "E:\\DicomGeneratorResult\\";
         }
 
 
         [RelayCommand]
         private async Task SendDicomImage()
         {
-            IsVisible = Visibility.Visible;
+            var stopwatch = Stopwatch.StartNew();
 
             _cancellationTokenSource = new CancellationTokenSource();
             var cancellationToken = _cancellationTokenSource.Token;
 
-            var options = new DicomClientOptions { AssociationRequestTimeoutInMs = 10000 };
-
             var client = DicomClientFactory.Create(ServerIp, ServerPort, false, CallingAe, CalledAe);
+            client.ClientOptions.MaximumNumberOfRequestsPerAssociation = 500;
 
             var dicomFiles = Directory.GetFiles(FolderPathFull, "*.*");
 
             var fileCount = 0;
 
-            foreach (var filePath in dicomFiles)
+            if (dicomFiles.Length == 0)
             {
-                if (cancellationToken.IsCancellationRequested)
+                ServerOutputText = "Файлов не найдено.";
+                return;
+            }
+
+            try
+            {
+                IsBusy = true;
+
+                var scanProgress = CreateProgress();
+
+                var dicomRequests = new List<DicomRequest>(dicomFiles.Length);
+
+                foreach (var filePath in dicomFiles)
                 {
-                    ServerOutputText = "Отправка файлов отменена пользователем.";
-                    break;
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var dicomFile = DicomFile.Open(filePath);
+                    var storeRequest = new DicomCStoreRequest(dicomFile);
+
+                    storeRequest.OnResponseReceived += (_, response) =>
+                    {
+                        Interlocked.Increment(ref fileCount);
+
+                        var percent = fileCount * 100 / dicomFiles.Length;
+
+                        scanProgress.Report((percent, $"DICOM файл {fileCount} из {dicomFiles.Length} отправлен успешно."));
+                    };
+
+                    dicomRequests.Add(storeRequest);
                 }
 
-                var dicomFile = DicomFile.Open(filePath);
-                var storeRequest = new DicomCStoreRequest(dicomFile);
+                await client.AddRequestsAsync(dicomRequests);
 
-                await client.AddRequestAsync(storeRequest);
+                await client.SendAsync(cancellationToken, cancellationMode: DicomClientCancellationMode.ImmediatelyReleaseAssociation);
+            }
+            catch (OperationCanceledException)
+            {
+                ServerOutputText = $"Отправка DICOM файла {fileCount} была отменена.";
+                return;
+            }
+            catch (Exception ex)
+            {
+                ServerOutputText = $"Ошибка: {ex.Message}";
+                return;
+            }
+            finally
+            {
+                stopwatch.Stop();
+                var elapsedTime = stopwatch.Elapsed;
+                var timeString = FormatTimeSpan(elapsedTime);
 
-                fileCount++;
+                IsBusy = false;
 
-                try
-                {
-                    await client.SendAsync(cancellationMode: DicomClientCancellationMode.ImmediatelyReleaseAssociation);
-                    ServerOutputText = $"DICOM файл {fileCount} отправлен успешно.";
-                }
-                catch (OperationCanceledException)
-                {
-                    ServerOutputText = $"Отправка DICOM файла {fileCount} была отменена.";
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    ServerOutputText = $"Ошибка: {ex.Message}";
-                    return;
-                }
-                finally
-                {
-                    IsVisible = Visibility.Collapsed;
-                }
+                ServerOutputText = $"DICOM файл {fileCount} отправлен успешно. Время выполнения: {timeString}";
             }
         }
 
@@ -168,6 +197,28 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             FolderPathShort = $@"...\{tail}";
 
             return FolderPathShort;
+        }
+
+        private string FormatTimeSpan(TimeSpan time)
+        {
+            if (time.TotalHours >= 1)
+            {
+                return $"{time.Hours} ч {time.Minutes} мин {time.Seconds} сек";
+            }
+            if (time.TotalMinutes >= 1)
+            {
+                return $"{time.Minutes} мин {time.Seconds} сек";
+            }
+            return $"{time.TotalSeconds:F1} сек";
+        }
+
+        private IProgress<(int Percent, string Message)> CreateProgress()
+        {
+            return new Progress<(int Percent, string Message)>(percent =>
+            {
+                CurrentProgress = percent.Percent;
+                BusyMessage = percent.Message;
+            });
         }
     }
 }
