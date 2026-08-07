@@ -5,24 +5,33 @@ namespace DicomGenerator.Core.GeneratorRules.Patient
 {
     public sealed class OrderedIdRule : IGeneratorRule<string, int>
     {
-        public OrderedIdRule(string prefix)
+        public string Prefix { get; set; }
+        public int IdNumber { get; set; }
+
+
+        public OrderedIdRule(string prefix, int idNumber)
         {
-            Prefix = string.IsNullOrEmpty(prefix) ? "Test" : prefix;
+            Prefix = string.IsNullOrEmpty(prefix) ? "Test_" : prefix;
+            IdNumber = idNumber;
         }
 
 
-        public string Prefix { get; set; }
 
         public string Generate(int order)
         {
-            var numberId = order + 1;
+            if(order < 0)
+            {
+                order = 0;
+            }
+
+            var idNumber = IdNumber + order + 1;
 
             if (string.IsNullOrWhiteSpace(Prefix))
             {
                 throw new InvalidOperationException("Prefix must contain an string");
             }
 
-            var outputPrefix = $"{Prefix}_{numberId:D6}";
+            var outputPrefix = $"{Prefix}{idNumber:D6}";
 
             return outputPrefix;
         }

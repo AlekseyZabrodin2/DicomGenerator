@@ -71,7 +71,7 @@ namespace DicomGenerator.Tests
             var patientParameters = new PatientGeneratorParameters(
                 new DicomEncodingRule(Encoding.UTF8),
                 new RandomNameRule("Stepler", "Geka", "Olegovich"),
-                new OrderedIdRule("Tester"),
+                new OrderedIdRule("Tester", 1),
                 new RandomSexRule("M"), 
                 new PatientAddressRule("Minsk"),
                 new PatientCommentsRule("Zdorov"),
