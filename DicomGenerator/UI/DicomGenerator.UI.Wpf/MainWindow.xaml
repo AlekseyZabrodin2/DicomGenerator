@@ -2,7 +2,6 @@
     x:Class="DicomGenerator.UI.Wpf.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:core="clr-namespace:DicomGenerator.Core;assembly=DicomGenerator.Core"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -10,9 +9,9 @@
     xmlns:views="clr-namespace:DicomGenerator.UI.Wpf.Views"
     xmlns:wpf="clr-namespace:DicomGenerator.UI.Wpf"
     Title="Generator Dicom File"
-    Width="905"
-    Height="555"
-    Icon="D:\Develop\dicomGenerator\DicomGenerator\UI\DicomGenerator.UI.Wpf\DicomGenerator.ico"
+    Width="1000"
+    Height="850"
+    Icon="D:\Develop\DicomGenerator\DicomGenerator\UI\DicomGenerator.UI.Wpf\DicomGenerator.ico"
     WindowStartupLocation="CenterScreen"
     WindowStyle="ThreeDBorderWindow"
     mc:Ignorable="d">
@@ -21,7 +20,7 @@
 
     <!--  Path for install         Icon="C:\Program Files (x86)\DicomGenerator\DicomGeneratorTestData\Resources\DicomGenerator.ico"  -->
 
-    <!--  Path for debug           Icon="D:\Develop\dicomGenerator\DicomGenerator\UI\DicomGenerator.UI.Wpf\DicomGenerator.ico"  -->
+    <!--  Path for debug           Icon="D:\Develop\DicomGenerator\DicomGenerator\UI\DicomGenerator.UI.Wpf\DicomGenerator.ico"  -->
 
     <TabControl>
 
