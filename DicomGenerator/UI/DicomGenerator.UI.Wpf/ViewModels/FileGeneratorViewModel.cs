@@ -16,6 +16,7 @@ using DicomGenerator.Core.GeneratorRules.Series;
 using DicomGenerator.Core.GeneratorRules.Sop;
 using DicomGenerator.Core.GeneratorRules.Study;
 using FellowOakDicom;
+using Microsoft.Win32;
 
 namespace DicomGenerator.UI.Wpf.ViewModels
 {
@@ -24,26 +25,50 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         private StudyGeneratorParameters _studyParameters;
         private PatientGeneratorParameters _patientParameters;
         private PatientGenerator _patientGenerator;
-        private SerieGeneratorParameters _serieParameters;
         private SerieGeneratorParameters _serieParametersSr;
         private SerieGeneratorParameters _serieParametersMg;
         private SerieGeneratorParameters _serieParametersDx;
-        private SopGeneratorParameters _sopGeneratorParameters;
         private DicomEncodingRule _defaultEncoding = new DicomEncodingRule(Encoding.UTF8);
         private CancellationTokenSource _cancellationTokenSource;
         public bool _useBirthDatePatient;
         public int _sumCounts;
-        private readonly string _pathToSave = @"D:\DicomGeneratorResult";
+        private string _testDataPath = string.Empty;
+        private string _saveFolderPath = string.Empty;
 
-
+        //private readonly string _pathToSave = @"D:\DicomGeneratorResult";
         // Path to TestData in Debug
-        private readonly string _pathToTestData = @"D:\Develop\DicomGeneratorTestData\";
+        //private readonly string _pathToTestData = @"D:\Develop\DicomGeneratorTestData\";
 
 
         // Path to TestData after Install
         //private readonly string _pathToTestData = @"C:\Program Files (x86)\DicomGenerator\DicomGeneratorTestData\";
 
 
+        public string TestDataFolderPath
+        {
+            get => _testDataPath;
+            set
+            {
+                SetProperty(ref _testDataPath, value);
+                TestDataFolderPathShort = BuildShortPath(_testDataPath);
+            }
+        }
+
+        public string SaveFolderPath
+        {
+            get => _saveFolderPath;
+            set
+            {
+                SetProperty(ref _saveFolderPath, value);
+                SaveFolderPathShort = BuildShortPath(_saveFolderPath);
+            }
+        }
+
+        [ObservableProperty]
+        public partial string TestDataFolderPathShort { get; set; }
+
+        [ObservableProperty]
+        public partial string SaveFolderPathShort { get; set; }
 
         public ObservableCollection<DicomEncodingRule> Encodings { get; }
 
@@ -117,6 +142,12 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         public partial string IdPatient { get; set; }
 
         [ObservableProperty]
+        public partial string IdPrefix { get; set; }
+
+        [ObservableProperty]
+        public partial int IdNumber { get; set; }
+
+        [ObservableProperty]
         public partial string LastNamePatient { get; set; }
 
         [ObservableProperty]
@@ -152,7 +183,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         }
 
         [ObservableProperty]
-        public partial GenderItem? SelectedGender { get; set; }
+        public partial GenderItem SelectedGender { get; set; }
 
 
 
@@ -190,6 +221,9 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             StartDatePatient = DateTime.Now.AddMonths(-3);
             EndDatePatient = DateTime.Now;
             EndTimePatient = DateTime.Now;
+
+            TestDataFolderPath = @"D:\Develop\DicomGeneratorTestData\";
+            SaveFolderPath = @"E:\DicomGeneratorResult";
         }
 
 
@@ -202,6 +236,29 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             }
 
             return PeriodBirthDatePatient;
+        }
+
+        [RelayCommand]
+        private void BrowseTestDataFolder()
+        {
+            var dialog = new OpenFolderDialog();
+            if (dialog.ShowDialog() == true)
+            {
+                TestDataFolderPath = dialog.FolderName;
+            }
+        }
+
+        [RelayCommand]
+        private void BrowseSaveFolder()
+        {
+            var dialog = new OpenFolderDialog();
+            if (dialog.ShowDialog() == true)
+            {
+                SaveFolderPath = dialog.FolderName;
+
+                var allFiles = Directory.GetFiles(SaveFolderPath, "*.*", SearchOption.AllDirectories);
+                OutputText = $"Found {allFiles.Length} files in folder";
+            }
         }
 
         [RelayCommand]
@@ -227,7 +284,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                       Modality.Dx,
                       new SeriesNumberRule(),
                       new RangeSeriesDateTimeRule(StartTimePatient, EndTimePatient),
-                      new SopGeneratorParameters(new SopClassUidRule(new SopClassFactory(_pathToTestData)))
+                      new SopGeneratorParameters(new SopClassUidRule(new SopClassFactory(TestDataFolderPath)))
                       {
                           SopCount = SopDxCount
                       })
@@ -238,7 +295,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                         Modality.Mg,
                         new SeriesNumberRule(),
                         new RangeSeriesDateTimeRule(StartTimePatient, EndTimePatient),
-                        new SopGeneratorParameters(new SopClassUidRule(new SopClassFactory(_pathToTestData)))
+                        new SopGeneratorParameters(new SopClassUidRule(new SopClassFactory(TestDataFolderPath)))
                         {
                             SopCount = SopMgCount
                         })
@@ -249,7 +306,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                         Modality.Sr,
                         new SeriesNumberRule(),
                         new RangeSeriesDateTimeRule(StartTimePatient, EndTimePatient),
-                        new SopGeneratorParameters(new SopClassUidRule(new SopClassFactory(_pathToTestData)))
+                        new SopGeneratorParameters(new SopClassUidRule(new SopClassFactory(TestDataFolderPath)))
                         {
                             SopCount = SopSrCount
                         })
@@ -260,10 +317,14 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                         new RandomAccessionNumberRule(),
                         new List<SerieGeneratorParameters>() { _serieParametersDx, _serieParametersMg, _serieParametersSr });
 
+                    var (prefix, number) = ParsePatientId(IdPatient);
+                    IdPrefix = prefix;
+                    IdNumber = number;
+
                     _patientParameters = new PatientGeneratorParameters(
                         ChooseCod,
                         new RandomNameRule(LastNamePatient, NamePatient, MiddleNamePatient),
-                        new OrderedIdRule(IdPatient),
+                        new OrderedIdRule(IdPrefix, IdNumber),
                         new RandomSexRule(SelectedGender.Code),
                         new PatientAddressRule(AddressPatient),
                         new PatientCommentsRule(InfoPatient),
@@ -286,7 +347,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
                     _patientGenerator = new PatientGenerator();
 
-                    DirectoryInfo directoryInfo = new DirectoryInfo(_pathToSave);
+                    DirectoryInfo directoryInfo = new DirectoryInfo(SaveFolderPath);
 
                     if (!directoryInfo.Exists)
                     {
@@ -307,7 +368,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                         {
                             var dicomFIle = new DicomFile(dataset);
 
-                            dicomFIle.Save(Path.Combine(_pathToSave, Guid.NewGuid().ToString()));                            
+                            dicomFIle.Save(Path.Combine(SaveFolderPath, Guid.NewGuid().ToString()));                            
                         }
 
                         processed++;
@@ -415,6 +476,59 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
             _cancellationTokenSource = new CancellationTokenSource();
             return _cancellationTokenSource.Token;
+        }
+
+        public static (string Prefix, int Number) ParsePatientId(string patientId)
+        {
+            if (string.IsNullOrWhiteSpace(patientId))
+                return (string.Empty, 0);
+
+            int prefixEnd = 0;
+            for (int i = 0; i < patientId.Length; i++)
+            {
+                if (char.IsDigit(patientId[i]))
+                    break;
+                prefixEnd = i + 1;
+            }
+
+            if (prefixEnd >= patientId.Length)
+                return (patientId, 0);
+
+            var prefix = patientId.Substring(0, prefixEnd);
+            var numberPart = patientId.Substring(prefixEnd);
+
+            var number = numberPart.TrimStart('0');
+
+            if (string.IsNullOrEmpty(number))
+                number = "0";
+
+            return (prefix, int.Parse(number));
+        }
+
+        private string BuildShortPath(string fullPath, int keepFolders = 3)
+        {
+            if (string.IsNullOrWhiteSpace(fullPath))
+                return string.Empty;
+
+            // Нормализуем разделители и убираем хвостовые '\'
+            var normalized = fullPath.Replace('/', '\\').TrimEnd('\\');
+
+            // Для коротких путей ничего не делаем
+            var parts = normalized.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length <= keepFolders + 1) // +1 = имя файла
+            {
+                //DatabasePathShort = normalized;
+                return normalized;
+            }
+
+            var fileName = parts[^1];
+            var startIndex = Math.Max(0, parts.Length - (keepFolders + 1));
+            var tail = string.Join("\\", parts[startIndex..]);
+
+            // Если есть диск (C:) или UNC, префикс всё равно делаем через "..."
+            var databasePathShort = $@"...\{tail}";
+
+            return databasePathShort;
         }
 
         private void StartBusy(string message = "Загрузка ...", bool percentShow = true)

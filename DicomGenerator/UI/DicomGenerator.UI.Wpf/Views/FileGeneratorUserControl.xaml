@@ -2,6 +2,7 @@
     x:Class="DicomGenerator.UI.Wpf.Views.FileGeneratorUserControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="http://metro.mahapps.com/winfx/xaml/controls"
     xmlns:convert="clr-namespace:DicomGenerator.UI.Wpf.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:DicomGenerator.UI.Wpf.Views"
@@ -22,9 +23,11 @@
         BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
         BorderThickness="4">
 
-        <Grid Margin="5,0,5,5" ShowGridLines="False">
+        <Grid Margin="5,0" ShowGridLines="False">
 
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -39,14 +42,82 @@
                 <ColumnDefinition />
             </Grid.ColumnDefinitions>
 
+            <Grid
+                Grid.Row="0"
+                Grid.ColumnSpan="4"
+                Margin="0,5">
+
+                <StackPanel Orientation="Vertical">
+                    <TextBlock FontWeight="SemiBold" Text="Folder with TestData" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBox
+                            Height="30"
+                            Margin="0,0,10,0"
+                            VerticalContentAlignment="Center"
+                            controls:TextBoxHelper.Watermark="Select folder with TestData ..."
+                            BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
+                            IsReadOnly="True"
+                            Text="{Binding TestDataFolderPathShort}"
+                            ToolTip="{Binding TestDataFolderPath}" />
+
+                        <Button
+                            Grid.Column="1"
+                            Width="100"
+                            Padding="20,8"
+                            Background="{DynamicResource MahApps.Brushes.Accent}"
+                            Command="{Binding BrowseTestDataFolderCommand}"
+                            Content="Browse"
+                            ToolTip="Выбрать директорию с тестовыми данными" />
+                    </Grid>
+                </StackPanel>
+            </Grid>
+
+            <Grid
+                Grid.Row="1"
+                Grid.ColumnSpan="4"
+                Margin="0,5">
+
+                <StackPanel Orientation="Vertical">
+                    <TextBlock FontWeight="SemiBold" Text="Folder for Saving" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBox
+                            Margin="0,0,10,0"
+                            VerticalContentAlignment="Center"
+                            controls:TextBoxHelper.Watermark="Select folder for Saving..."
+                            BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
+                            IsReadOnly="True"
+                            Text="{Binding SaveFolderPathShort}"
+                            ToolTip="{Binding SaveFolderPath}" />
+
+                        <Button
+                            Grid.Column="1"
+                            Width="100"
+                            Padding="20,8"
+                            Background="{DynamicResource MahApps.Brushes.Accent}"
+                            Command="{Binding BrowseSaveFolderCommand}"
+                            Content="Browse"
+                            ToolTip="Выбрать директорию для сохранения" />
+                    </Grid>
+                </StackPanel>
+            </Grid>
 
             <Grid
                 Name="AddPatients"
-                Grid.Row="0"
-                Grid.RowSpan="3"
+                Grid.Row="2"
+                Grid.RowSpan="2"
                 Grid.Column="0"
                 Grid.ColumnSpan="2"
-                Margin="5,5,5,5">
+                Margin="0,5,5,5">
 
                 <Border
                     Grid.Row="0"
@@ -172,8 +243,7 @@
 
             <Grid
                 Name="AddStudies"
-                Grid.Row="0"
-                Grid.RowSpan="2"
+                Grid.Row="2"
                 Grid.Column="2"
                 Margin="5,5,5,5">
 
@@ -214,10 +284,9 @@
 
             <Grid
                 Name="AddSeries"
-                Grid.Row="0"
-                Grid.RowSpan="2"
+                Grid.Row="2"
                 Grid.Column="3"
-                Margin="5,5,5,5">
+                Margin="5,5,0,5">
 
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -262,10 +331,10 @@
 
             <Grid
                 Name="AddModality"
-                Grid.Row="2"
+                Grid.Row="3"
                 Grid.Column="2"
                 Grid.ColumnSpan="2"
-                Margin="5"
+                Margin="5,5,0,5"
                 VerticalAlignment="Bottom">
 
                 <Grid.RowDefinitions>
@@ -327,10 +396,10 @@
             </Grid>
 
             <Grid
-                Grid.Row="3"
+                Grid.Row="5"
                 Grid.Column="0"
                 Grid.ColumnSpan="4"
-                Margin="5">
+                Margin="0,5">
                 <Border
                     Grid.Row="0"
                     BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
@@ -344,18 +413,15 @@
                         IsReadOnly="True"
                         Text="{Binding OutputText, UpdateSourceTrigger=PropertyChanged}" />
                 </Border>
-
             </Grid>
-
-
 
             <Button
                 Name="CleanUpButton"
-                Grid.Row="4"
+                Grid.Row="6"
                 Grid.Column="1"
                 Width="70"
                 Height="40"
-                Margin="10"
+                Margin="5"
                 HorizontalAlignment="Center"
                 Background="{DynamicResource MahApps.Brushes.Accent}"
                 Command="{Binding CleanUpFieldsCommand}"
@@ -363,11 +429,11 @@
 
             <Button
                 Name="GenerateButton"
-                Grid.Row="4"
+                Grid.Row="6"
                 Grid.Column="2"
                 Width="70"
                 Height="40"
-                Margin="10"
+                Margin="5"
                 HorizontalAlignment="Center"
                 Background="{DynamicResource MahApps.Brushes.Accent}"
                 Command="{Binding GenerateFilesCommand}"
@@ -375,7 +441,7 @@
 
             <Grid
                 Grid.Row="0"
-                Grid.RowSpan="5"
+                Grid.RowSpan="7"
                 Grid.Column="0"
                 Grid.ColumnSpan="4"
                 HorizontalAlignment="Stretch"
@@ -422,7 +488,5 @@
             </Grid>
 
         </Grid>
-
     </Border>
-
 </UserControl>
