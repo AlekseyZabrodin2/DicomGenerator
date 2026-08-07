@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using DicomGenerator.Core.DicomFileParser;
+using DicomGenerator.Core.DicomGeneratorModels;
 using DicomGenerator.Core.LiteDbModels;
 using FellowOakDicom;
 using FellowOakDicom.Network;
@@ -246,7 +247,7 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
         }
 
         public async Task<List<DicomFileInfo>> LoadDicomMetadataFastAsync(IDicomClient client,
-            IProgress<(int Percent, string Message)>? progress,
+            IProgress<(int Percent, string Message)> progress,
             CancellationToken cancellationToken = default)
         {
             PreviewPatients = new();
@@ -256,17 +257,16 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
             SeriesCount = 0;
             ImagesCount = 0;
 
-            progress?.Report((0, "Загрузка исследований ..."));
+            progress?.Report((0, "Сканирование PACS..."));
 
             var datasets = await LoadAllImagesAsync(client, progress, cancellationToken);
-
-            progress?.Report((0, $"Сканирование исследований ..."));
 
             var result = new List<DicomFileInfo>();
 
             var patients = new Dictionary<string, PatientLiteDb>();
             var studies = new Dictionary<string, StudyLiteDb>();
             var series = new Dictionary<string, SeriesLiteDb>();
+            var images = new HashSet<string>();
 
             var total = datasets.Count;
             var processed = 0;
@@ -309,15 +309,20 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
                             SeriesCount++;
                         }
 
-                        ImagesCount++;
+                        var imageUid = imageInfo.Image?.SopInstanceUid;
 
-                        result.Add(new DicomFileInfo
+                        if (!string.IsNullOrWhiteSpace(imageUid) && images.Add(imageUid))
                         {
-                            Patient = patient,
-                            Study = study,
-                            Series = serie,
-                            Image = imageInfo.Image
-                        });
+                            ImagesCount++;
+
+                            result.Add(new DicomFileInfo
+                            {
+                                Patient = patient,
+                                Study = study,
+                                Series = serie,
+                                Image = imageInfo.Image
+                            });
+                        }
                     }
                 }
                 finally
@@ -332,7 +337,7 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
         }
 
         private async Task<List<DicomDataset>> LoadAllImagesAsync(IDicomClient client,
-            IProgress<(int Percent, string Message)>? progress,
+            IProgress<(int Percent, string Message)> progress,
             CancellationToken cancellationToken = default)
         {
             var images = new List<DicomDataset>();
@@ -344,7 +349,7 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
                 request.Dataset.AddOrUpdate(tag, "");
             }
 
-            Exception? pacsException = null;
+            Exception pacsException = null;
             void Handler(DicomCFindRequest _, DicomCFindResponse response)
             {
                 if (response.Status == DicomStatus.Pending && response.Dataset != null)
@@ -379,6 +384,17 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
             {
                 request.OnResponseReceived -= Handler;
             }
+        }
+
+        public ScanStatistics GetStatistics()
+        {
+            return new ScanStatistics
+            {
+                Patients = PatientsCount,
+                Studies = StudiesCount,
+                Series = SeriesCount,
+                Images = ImagesCount
+            };
         }
 
         private static readonly DicomTag[] ImageQueryTags =

@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DicomGenerator.Core.DicomGeneratorModels;
 using DicomGenerator.Core.LiteDbModels;
 using NLog;
 
@@ -105,7 +105,7 @@ namespace DicomGenerator.Core.DicomFileParser
 
                         parsedCount++;
                         var percent = (int)((double)parsedCount / files.Length * 100);
-                        progress?.Report((percent, "Сканирование исследований ... "));
+                        progress?.Report((percent, "Сканирование директории ... "));
                     }
                 }
                 catch (Exception ex)
@@ -115,6 +115,17 @@ namespace DicomGenerator.Core.DicomFileParser
             }
 
             return results;
+        }
+
+        public ScanStatistics GetStatistics()
+        {
+            return new ScanStatistics
+            {
+                Patients = PatientsCount,
+                Studies = StudiesCount,
+                Series = SeriesCount,
+                Images = ImagesCount
+            };
         }
     }
 }
