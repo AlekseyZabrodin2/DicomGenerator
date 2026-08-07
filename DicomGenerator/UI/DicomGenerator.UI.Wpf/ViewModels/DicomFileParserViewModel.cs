@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DicomGenerator.Core.DicomFileParser;
@@ -14,6 +15,7 @@ using DicomGenerator.Core.LiteDbModels;
 using DicomGenerator.UI.Wpf.DicomFileParser;
 using DicomGenerator.UI.Wpf.LiteDbCore;
 using DicomGenerator.UI.Wpf.LocalPacsModules;
+using DicomGenerator.UI.Wpf.Models;
 using FellowOakDicom.Network;
 using FellowOakDicom.Network.Client;
 using Microsoft.Win32;
@@ -27,10 +29,11 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         private readonly DicomFileScanner _scanner;
         private readonly LocalPacsSource _localPacsSource;
         private ObservableCollection<PatientLiteDb> _previewPatients;
-        private string _databasePath = string.Empty; 
+        private string _databasePath = string.Empty;
         private CancellationTokenSource _cancellationTokenSource;
         private PacsLoadingMode _loadingMode;
-        private DataSourceType _selectedDataSource;
+        private bool _isFolderScanSource;
+        private bool _isPacsScanSource;
 
 
         public ObservableCollection<PatientLiteDb> PreviewPatients
@@ -63,10 +66,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         public partial List<DicomFileInfo> ScannedDicomFiles { get; set; } = new();
 
         [ObservableProperty]
-        public partial string FolderPath { get; set; }
-
-        [ObservableProperty]
-        public partial string OutputText { get; set; }
+        public partial string OutputText { get; set; } = string.Empty;
 
         [ObservableProperty]
         public partial int ProgressValue { get; set; }
@@ -84,19 +84,10 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         public partial bool PercentShow { get; set; }
 
         [ObservableProperty]
-        public partial string PacsHost { get; set; } = "127.0.0.1";
+        public partial PacsSource MainPacsSource { get; set; }
 
         [ObservableProperty]
-        public partial string PacsPort { get; set; } = "4242";
-
-        [ObservableProperty]
-        public partial string CallingAe { get; set; } = "UNIEXPERT";
-
-        [ObservableProperty]
-        public partial string CalledAe { get; set; } = "ORTHANC";
-
-        [ObservableProperty]
-        public partial string EchoStatus { get; set; }
+        public partial FolderSource MainFolderSource { get; set; } = new();
 
         [ObservableProperty]
         public partial bool CanCancel { get; set; }
@@ -114,25 +105,67 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         }
 
         [ObservableProperty]
+        public partial DatabaseSaveMode SaveMode { get; set; } = DatabaseSaveMode.Full;
+
+        [ObservableProperty]
         public partial string CurrentLoadingMode { get; set; }
 
-        public DataSourceType SelectedDataSource
+        public bool HasPreviewData => !string.IsNullOrWhiteSpace(DatabasePath) && PreviewPatients?.Any() == true;
+
+        public bool IsAllScanSource
         {
-            get => _selectedDataSource;
+            get => IsFolderScanSource &&
+            IsPacsScanSource &&
+            AdditionalFolderSources.All(x => x.IsEnabled) &&
+            AdditionalPacsSources.All(x => x.IsEnabled);
+
             set
             {
-                if (SetProperty(ref _selectedDataSource, value))
+                IsFolderScanSource = value;
+                IsPacsScanSource = value;
+
+                foreach (var folder in AdditionalFolderSources)
+                    folder.IsEnabled = value;
+
+                foreach (var pacs in AdditionalPacsSources)
+                    pacs.IsEnabled = value;
+
+                OnPropertyChanged(nameof(IsAllScanSource));
+            }
+        }
+
+        public bool IsFolderScanSource
+        {
+            get => _isFolderScanSource;
+            set
+            {
+                if (SetProperty(ref _isFolderScanSource, value))
                 {
-                    OnPropertyChanged(nameof(IsFolderSource));
-                    OnPropertyChanged(nameof(IsPacsSource));
+                    OnPropertyChanged(nameof(IsAllScanSource));
                 }
             }
         }
 
-        public bool HasPreviewData => !string.IsNullOrWhiteSpace(DatabasePath) && PreviewPatients?.Any() == true;
-        public bool IsFolderSource => SelectedDataSource == DataSourceType.Folder;
-        public bool IsPacsSource => SelectedDataSource == DataSourceType.PACS;
+        public bool IsPacsScanSource
+        {
+            get => _isPacsScanSource;
+            set
+            {
+                if (SetProperty(ref _isPacsScanSource, value))
+                {
+                    OnPropertyChanged(nameof(IsAllScanSource));
+                }
+            }
+        }
 
+        [ObservableProperty]
+        public partial ObservableCollection<FolderSource> AdditionalFolderSources { get; set; } = new();
+
+        [ObservableProperty]
+        public partial ObservableCollection<PacsSource> AdditionalPacsSources { get; set; } = new();
+
+        public ICommand RemoveAdditionalFolderCommand { get; }
+        public ICommand RemoveAdditionalPacsCommand { get; }
 
 
         public DicomFileParserViewModel()
@@ -141,12 +174,46 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             _localPacsSource = new LocalPacsSource();
             PreviewPatients = new();
 
-            SelectedDataSource = DataSourceType.Folder;
-            LoadingMode = PacsLoadingMode.Auto;
+            InitialiseConnecting();
+            InitialiseScanMode();
             UpdateLoadingModeDescription();
+
+            RemoveAdditionalFolderCommand = new RelayCommand<FolderSource>(RemoveAdditionalFolder);
+            RemoveAdditionalPacsCommand = new RelayCommand<PacsSource>(RemoveAdditionalPacs);
+
+            AdditionalFolderSources.CollectionChanged += (s, e) => UpdateAllScanSource();
+            AdditionalPacsSources.CollectionChanged += (s, e) => UpdateAllScanSource();
         }
 
 
+        private void InitialiseConnecting()
+        {
+            MainPacsSource = new ()
+            {
+                Name ="Default",
+                PacsHost = "127.0.0.1",
+                PacsPort = "4242",
+                CallingAe = "UNIEXPERT",
+                CalledAe = "ORTHANC",
+                LoadingMode = PacsLoadingMode.Auto
+            };
+
+            MainFolderSource = new ()
+            {
+                FolderPath = "E:\\DicomGeneratorResult\\"
+            };
+        }
+
+        private void InitialiseScanMode()
+        {
+            LoadingMode = PacsLoadingMode.Auto;
+            IsAllScanSource = true;
+        }
+
+        private void UpdateAllScanSource()
+        {
+            OnPropertyChanged(nameof(IsAllScanSource));
+        }
 
         [RelayCommand]
         private void BrowseFolder()
@@ -154,12 +221,41 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             var dialog = new OpenFolderDialog();
             if (dialog.ShowDialog() == true)
             {
-                FolderPath = dialog.FolderName;
+                MainFolderSource.FolderPath = dialog.FolderName;
 
-                var allFiles = Directory.GetFiles(FolderPath, "*.*", SearchOption.AllDirectories);
+                var allFiles = Directory.GetFiles(MainFolderSource.FolderPath, "*.*", SearchOption.AllDirectories);
                 OutputText = $"Found {allFiles.Length} files in folder";
             }
         }
+
+        [RelayCommand]
+        private void BrowseAdditionalFolder()
+        {
+            var folder = new FolderSource();
+
+            var dialog = new OpenFolderDialog();
+            if (dialog.ShowDialog() == true)
+            {
+                folder.FolderPath = dialog.FolderName;
+                folder.IsEnabled = true;
+
+                var allFiles = Directory.GetFiles(folder.FolderPath, "*.*", SearchOption.AllDirectories);
+                OutputText = $"Found {allFiles.Length} files in folder";
+            }
+
+            folder.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(FolderSource.IsEnabled))
+                    UpdateAllScanSource();
+            };
+
+            AdditionalFolderSources.Add(folder);
+        }
+
+        private void RemoveAdditionalFolder(FolderSource item)
+        {
+            AdditionalFolderSources.Remove(item);
+        }        
 
         [RelayCommand]
         private void BrowseDatabase()
@@ -178,6 +274,24 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             }
         }
 
+        [RelayCommand]
+        public void AddAdditionalPacs()
+        {
+            var newPacs = new PacsSource();
+
+            newPacs.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(PacsSource.IsEnabled))
+                    UpdateAllScanSource();
+            };
+            AdditionalPacsSources.Add(newPacs);
+        }
+
+        private void RemoveAdditionalPacs(PacsSource item)
+        {
+            AdditionalPacsSources.Remove(item);
+        }
+
         private DicomDatabaseService CreateDatabaseService()
         {
             if (string.IsNullOrWhiteSpace(DatabasePath))
@@ -193,130 +307,114 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         }
 
         [RelayCommand]
-        private async Task ScanDicom()
-        {
-            if (SelectedDataSource == DataSourceType.Folder)
-                await ScanFolderAsync();
-
-            if (SelectedDataSource == DataSourceType.PACS)
-                await ScanDatasetAsync();
-        }
-
-        private async Task ScanFolderAsync()
+        private async Task ScanDicomAsync()
         {
             var stopwatch = Stopwatch.StartNew();
 
+            OutputText = string.Empty;
             PreviewPatients?.Clear();
             ScannedDicomFiles?.Clear();
 
-            if (string.IsNullOrWhiteSpace(FolderPath))
+            var token = CreateCancellationToken();
+            var allResults = new List<DicomFileInfo>();
+
+            var activeFolders = new List<FolderSource>();
+            var activePacs = new List<PacsSource>();
+
+            if (IsFolderScanSource && !string.IsNullOrWhiteSpace(MainFolderSource?.FolderPath))
             {
-                OutputText = "Пожалуйста, сначала выберите папку.";
+                activeFolders.Add(MainFolderSource);
+            }
+
+            if (IsPacsScanSource && MainPacsSource != null)
+            {
+                activePacs.Add(MainPacsSource);
+            }
+
+            activeFolders.AddRange(AdditionalFolderSources.Where(x => x.IsEnabled));
+            activePacs.AddRange(AdditionalPacsSources.Where(x => x.IsEnabled));
+
+            var totalSources = activeFolders.Count + activePacs.Count;
+
+            if (totalSources == 0)
+            {
+                OutputText = "Нет активных источников.";
                 return;
             }
 
-            var token = CreateCancellationToken();
-
             try
             {
-                StartBusy();
+                StartBusy($"Сканирование {totalSources} источников...", false);
 
-                var scanProgress = CreateProgress();
+                var sourceIndex = 0;
 
-                ScannedDicomFiles = await _scanner.ScanFolderAsync(FolderPath, scanProgress, token);
-                PreviewPatients = new ObservableCollection<PatientLiteDb>(_scanner.PreviewPatients);
-            }
-            catch (OperationCanceledException)
-            {
-                OutputText = "Сканирование было отменено.";
-            }
-            catch (Exception ex)
-            {
-                OutputText = $"Error: {ex.Message}";
-            }
-            finally
-            {
+                foreach (var folder in activeFolders)
+                {
+                    token.ThrowIfCancellationRequested();
+
+                    sourceIndex++;
+
+                    BusyMessage =
+                        $"Сканирование папки {folder.FolderPath} " +
+                        $"({sourceIndex}/{totalSources})";
+
+                    var progress = new Progress<(int Percent, string Message)>(p =>
+                    {
+                        CurrentProgress = p.Percent;
+                        BusyMessage = $"Папка: {p.Message}";
+                    });
+
+                    var results = await _scanner.ScanFolderAsync(folder.FolderPath, progress, token);
+                    allResults.AddRange(results);
+                }
+
+                foreach (var pacs in activePacs)
+                {
+                    token.ThrowIfCancellationRequested();
+
+                    sourceIndex++;
+
+                    BusyMessage =
+                        $"Сканирование PACS {pacs.Name} " +
+                        $"({sourceIndex}/{totalSources})";
+
+                    var client = CreateClientFromCollection(pacs);
+
+                    if (client == null)
+                    {
+                        OutputText += $"\nНе удалось подключиться к {pacs.Name}";
+                        continue;
+                    }
+
+                    var progress = new Progress<(int Percent, string Message)>(p =>
+                    {
+                        CurrentProgress = p.Percent;
+                        BusyMessage = $"PACS {pacs.Name}: {p.Message}";
+                    });
+
+                    var results = await LoadFromPacsAsync(client,pacs.LoadingMode, progress, token);
+                    allResults.AddRange(results);
+                }
+
+                ScannedDicomFiles = allResults;
+                PreviewPatients = BuildPreviewPatients(allResults);
+
+                var stats = GetStatistics(allResults);
+
                 stopwatch.Stop();
-                var elapsedTime = stopwatch.Elapsed;
-                var timeString = FormatTimeSpan(elapsedTime);
 
-                StopBusy();
+                var timeString = FormatTimeSpan(stopwatch.Elapsed);
 
-                OutputText = $"Пациентов - [{_scanner.PatientsCount}], " +
-                    $"Исследований - [{_scanner.StudiesCount}], " +
-                    $"Серий - [{_scanner.SeriesCount}], " +
-                    $"Изображений - [{_scanner.ImagesCount}]. Время выполнения: {timeString}";
-
-                _cancellationTokenSource?.Dispose();
-                _cancellationTokenSource = null;
-            }
-        }
-
-        private async Task ScanDatasetAsync()
-        {
-            var stopwatch = Stopwatch.StartNew();
-
-            PreviewPatients?.Clear();
-            ScannedDicomFiles?.Clear();
-
-            if (_localPacsSource == null)
-            {
-                OutputText = "Pacs клиент не подключается.";
-                return;
-            }
-
-            var token = CreateCancellationToken();
-
-            try
-            {
-                StartBusy("Загрузка исследований ...");
-
-                var loadProgress = CreateProgress();
-
-                if (!int.TryParse(PacsPort, out var port))
-                {
-                    OutputText = "Недопустимый порт PACS.";
-                    return;
-                }
-
-                var client = CreateClient(PacsHost, port, CallingAe, CalledAe);
-
-                if (client == null)
-                {
-                    OutputText = "Не удается создать клиент PACS.";
-                    return;
-                }
-
-                switch (LoadingMode)
-                {
-                    case PacsLoadingMode.Fast:
-                        PercentShow = false;
-                        ScannedDicomFiles = await _localPacsSource.LoadDicomMetadataFastAsync(client, loadProgress, token);
-                        break;
-
-                    case PacsLoadingMode.Compatible:
-                        ScannedDicomFiles = await _localPacsSource.LoadDicomMetadataAsync(client, loadProgress, token);
-                        break;
-
-                    case PacsLoadingMode.Auto:
-                    default:
-                        try
-                        {
-                            PercentShow = false;
-                            ScannedDicomFiles = await _localPacsSource.LoadDicomMetadataFastAsync(client, loadProgress, token);
-                        }
-                        catch (Exception ex)
-                        {
-                            CurrentLoadingMode = "Авто → Одиночный";
-                            OutputText = $"Не удалось загрузить {ex.Message}";
-                            ScannedDicomFiles = await _localPacsSource.LoadDicomMetadataAsync(client, loadProgress, token);
-                        }
-                        break;
-                }
+                OutputText = $"Всего: Пациентов - [{stats.Patients}], " +
+                    $"Исследований - [{stats.Studies}], " +
+                    $"Серий - [{stats.Series}], " +
+                    $"Изображений - [{stats.Images}].\n" +
+                    $"Источников: {totalSources} (папок: {activeFolders.Count}, PACS: {activePacs.Count})\n" +
+                    $"Время выполнения: {timeString}";
             }
             catch (OperationCanceledException)
             {
-                OutputText = "Scanning was cancelled.";
+                OutputText = "Сканирование отменено пользователем.";
             }
             catch (Exception ex)
             {
@@ -324,24 +422,85 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             }
             finally
             {
-                PreviewPatients = _localPacsSource.PreviewPatients;
-
-                stopwatch.Stop();
-                var elapsedTime = stopwatch.Elapsed;
-                var timeString = FormatTimeSpan(elapsedTime);
-
                 StopBusy();
-
-                if (_localPacsSource.PatientsCount > 0 && !OutputText!.Contains("Ошибка"))
-                {
-                    OutputText = $"Пациентов - [{_localPacsSource.PatientsCount}], " +
-                    $"Исследований - [{_localPacsSource.StudiesCount}], " +
-                    $"Серий - [{_localPacsSource.SeriesCount}], " +
-                    $"Изображений - [{_localPacsSource.ImagesCount}]. Время выполнения: {timeString}";
-                }
 
                 _cancellationTokenSource?.Dispose();
                 _cancellationTokenSource = null;
+            }
+        }
+
+        private ObservableCollection<PatientLiteDb> BuildPreviewPatients(List<DicomFileInfo> results)
+        {
+            var patients = new ObservableCollection<PatientLiteDb>();
+            var seenIds = new HashSet<string>();
+
+            foreach (var info in results)
+            {
+                if (info.Patient != null && seenIds.Add(info.Patient.PatientID))
+                {
+                    patients.Add(info.Patient);
+                }
+            }
+
+            return patients;
+        }        
+
+        private (int Patients, int Studies, int Series, int Images) GetStatistics(List<DicomFileInfo> results)
+        {
+            var patients = new HashSet<string>();
+            var studies = new HashSet<string>();
+            var series = new HashSet<string>();
+            var images = new HashSet<string>();
+
+            foreach (var item in results)
+            {
+                if (!string.IsNullOrWhiteSpace(item.Patient?.PatientID))
+                    patients.Add(item.Patient.PatientID);
+
+                if (!string.IsNullOrWhiteSpace(item.Study?.StudyInstanceUid))
+                    studies.Add(item.Study.StudyInstanceUid);
+
+                if (!string.IsNullOrWhiteSpace(item.Series?.SeriesInstanceUid))
+                    series.Add(item.Series.SeriesInstanceUid);
+
+                if (!string.IsNullOrWhiteSpace(item.Image?.SopInstanceUid))
+                    images.Add(item.Image.SopInstanceUid);
+            }
+
+            return (
+                patients.Count,
+                studies.Count,
+                series.Count,
+                images.Count);
+        }
+
+        private async Task<List<DicomFileInfo>> LoadFromPacsAsync(
+            IDicomClient client,
+            PacsLoadingMode loadingMode,
+            IProgress<(int Percent, string Message)> progress,
+            CancellationToken token)
+        {
+            return loadingMode switch
+            {
+                PacsLoadingMode.Fast => await _localPacsSource.LoadDicomMetadataFastAsync(client, progress, token),
+                PacsLoadingMode.Compatible => await _localPacsSource.LoadDicomMetadataAsync(client, progress, token),
+                _ => await LoadWithFallbackAsync(client, progress, token)
+            };
+        }
+
+        private async Task<List<DicomFileInfo>> LoadWithFallbackAsync(
+            IDicomClient client,
+            IProgress<(int Percent, string Message)> progress,
+            CancellationToken token)
+        {
+            try
+            {
+                return await _localPacsSource.LoadDicomMetadataFastAsync(client, progress, token);
+            }
+            catch (DicomNetworkException)
+            {
+                BusyMessage = "Быстрый режим не поддерживается. Переключение на совместимый...";
+                return await _localPacsSource.LoadDicomMetadataAsync(client, progress, token);
             }
         }
 
@@ -355,24 +514,55 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             OutputText = "Операция отменена пользователем.";
         }
 
-        private IDicomClient CreateClient(string host, int port, string callingAe, string calledAe)
-        {
+        private IDicomClient CreateClient()
+        {            
             try
             {
-                var client = DicomClientFactory.Create(
-                    host,
-                    port,
+                if (!int.TryParse(MainPacsSource.PacsPort, out var pacsPort))
+                {
+                    MainPacsSource.EchoStatus = "Invalid port";
+                    return null;
+                }
+
+                return DicomClientFactory.Create(
+                    MainPacsSource.PacsHost,
+                    pacsPort,
                     false,
-                    callingAe,
-                    calledAe);
+                    MainPacsSource.CallingAe,
+                    MainPacsSource.CalledAe);
 
-                _logger.Info($"PACS client created: {PacsHost}:{PacsPort}");
-
-                return client;
             }
             catch (Exception ex)
             {
-                _logger.Error($"Error creating PACS client: {ex.Message}");
+                OutputText = $"Error creating PACS client: {ex.Message}";
+                _logger.Error(OutputText);
+
+                return null;
+            }
+        }
+
+        private IDicomClient CreateClientFromCollection(PacsSource pacsSource)
+        {
+            try
+            {
+                if (!int.TryParse(pacsSource.PacsPort, out var pacsPort))
+                {
+                    pacsSource.EchoStatus = "Invalid port";
+                    return null;
+                }
+
+                return DicomClientFactory.Create(
+                    pacsSource.PacsHost,
+                    pacsPort,
+                    false,
+                    pacsSource.CallingAe,
+                    pacsSource.CalledAe);
+
+            }
+            catch (Exception ex)
+            {
+                OutputText = $"Error creating PACS client: {ex.Message}";
+                _logger.Error(OutputText);
 
                 return null;
             }
@@ -398,7 +588,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
                 await Task.Run(() =>
                 {
-                    databaseService.SaveToDatabase(ScannedDicomFiles, saveProgress, token);
+                    databaseService.SaveToDatabase(ScannedDicomFiles, SaveMode, saveProgress, token);
                 }, token);
 
                 OutputText = $"Завершено! Сохраненно {ScannedDicomFiles.Count} файл(ов).";
@@ -434,24 +624,19 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         [RelayCommand]
         public async Task EchoAsync()
         {
-            if (string.IsNullOrWhiteSpace(PacsHost) || string.IsNullOrWhiteSpace(PacsPort))
+            if (string.IsNullOrWhiteSpace(MainPacsSource.PacsHost) || string.IsNullOrWhiteSpace(MainPacsSource.PacsPort))
             {
-                OutputText = "Пожалуйста, введите Хост и Порт.";
-                EchoStatus = OutputText;
+                OutputText = "Please enter Host or Port.";
+                MainPacsSource.EchoStatus = OutputText;
                 return;
             }
 
-            OutputText = "Соединение ...";
-            EchoStatus = OutputText;
+            OutputText = "Connecting ...";
+            MainPacsSource.EchoStatus = OutputText;
 
             try
             {
-                if (!int.TryParse(PacsPort, out var port))
-                {
-                    OutputText = "Недопустимый порт PACS.";
-                    return;
-                }
-                var client = CreateClient(PacsHost, port, CallingAe, CalledAe);
+                var client = CreateClient();
 
                 if (client == null)
                 {
@@ -463,13 +648,13 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                 await client.AddRequestAsync(echoRequest);
                 await client.SendAsync();
 
-                OutputText = $"PacS - [ {CalledAe} ] подключился успешно! ({PacsHost} : {PacsPort})";
-                EchoStatus = OutputText;
+                OutputText = $"PacS - [ {MainPacsSource.CalledAe} ] connected successful! ({MainPacsSource.PacsHost} : {MainPacsSource.PacsPort})";
+                MainPacsSource.EchoStatus = OutputText;
             }
             catch (Exception ex)
             {
-                OutputText = $"Ошибка: {ex.Message}";
-                EchoStatus = OutputText;
+                OutputText = $"error: {ex.Message}";
+                MainPacsSource.EchoStatus = OutputText;
             }
         }
 

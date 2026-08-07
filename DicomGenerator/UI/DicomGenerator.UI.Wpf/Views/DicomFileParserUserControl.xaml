@@ -32,6 +32,10 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -81,22 +85,47 @@
                 Grid.Row="1"
                 Grid.ColumnSpan="3"
                 Margin="0,0,0,10">
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <TextBlock
+                        Grid.Column="0"
+                        Margin="0,0,10,0"
+                        VerticalAlignment="Center"
+                        FontWeight="SemiBold"
+                        Text="Saving Mode:" />
+
+                    <RadioButton
+                        Margin="0,0,10,0"
+                        Content="Пациенты + исследования + изображения"
+                        IsChecked="{Binding SaveMode, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Full}" />
+
+                    <RadioButton
+                        Margin="0,0,10,0"
+                        Content="Только пациенты"
+                        IsChecked="{Binding SaveMode, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=PatientsOnly}" />
+                </StackPanel>
+            </Grid>
+
+            <!--  ========== СУЩЕСТВУЮЩИЕ ИСТОЧНИКИ ==========  -->
+
+            <!--  1. Папка (основная)  -->
+            <Grid
+                Grid.Row="2"
+                Grid.ColumnSpan="3"
+                Margin="0,0,0,5">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="70" />
                     <ColumnDefinition />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <RadioButton
+                <CheckBox
                     Margin="0,0,10,0"
                     Content="Folder"
                     FontWeight="SemiBold"
-                    GroupName="DataSource"
-                    IsChecked="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Folder}" />
+                    IsChecked="{Binding IsFolderScanSource}" />
+
                 <Border Grid.Column="1">
-                    <Grid
-                        Grid.Column="1"
-                        IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Folder}"
-                        Opacity="{Binding SelectedDataSource, Converter={StaticResource BoolToOpacityConverter}, ConverterParameter=Folder}">
+                    <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -108,41 +137,37 @@
                             controls:TextBoxHelper.Watermark="Select a folder..."
                             BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
                             IsReadOnly="True"
-                            Text="{Binding FolderPath}" />
+                            Text="{Binding MainFolderSource.FolderPath}" />
 
                         <Button
                             Grid.Column="1"
-                            Width="100"
-                            Padding="20,8"
+                            Width="80"
+                            Padding="10,8"
                             Background="{DynamicResource MahApps.Brushes.Accent}"
                             Command="{Binding BrowseFolderCommand}"
                             Content="Browse" />
                     </Grid>
                 </Border>
-
             </Grid>
 
+            <!--  2. PACS (основной)  -->
             <Grid
-                Grid.Row="2"
+                Grid.Row="3"
                 Grid.ColumnSpan="3"
-                Margin="0,0,0,10"
-                ShowGridLines="False">
+                Margin="0,0,0,5">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="70" />
                     <ColumnDefinition />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <RadioButton
+                <CheckBox
                     Margin="0,0,10,0"
                     Content="PACS"
                     FontWeight="SemiBold"
-                    GroupName="DataSource"
-                    IsChecked="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=PACS}" />
+                    IsChecked="{Binding IsPacsScanSource}" />
 
-                <Grid
-                    Grid.Column="1"
-                    IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=PACS}"
-                    Opacity="{Binding SelectedDataSource, Converter={StaticResource BoolToOpacityConverter}, ConverterParameter=PACS}">
+                <Grid Grid.Column="1">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition />
                         <ColumnDefinition />
@@ -151,62 +176,54 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <!--  Calling AE Title  -->
                     <TextBox
                         Grid.Column="0"
                         Margin="0,0,10,0"
                         VerticalContentAlignment="Center"
                         controls:TextBoxHelper.Watermark="Клиент - AE Title:"
                         BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
-                        Text="{Binding CallingAe, Mode=TwoWay}" />
+                        Text="{Binding MainPacsSource.CallingAe, Mode=TwoWay}" />
 
-                    <!--  PACS: Хост  -->
                     <TextBox
                         Grid.Column="1"
                         Margin="0,0,10,0"
                         VerticalContentAlignment="Center"
                         controls:TextBoxHelper.Watermark="Сервер IP:"
                         BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
-                        Text="{Binding PacsHost, Mode=TwoWay}"
+                        Text="{Binding MainPacsSource.PacsHost, Mode=TwoWay}"
                         ToolTip="PACS Host (IP or hostname)" />
 
-                    <!--  PACS: Порт  -->
                     <TextBox
                         Grid.Column="2"
                         Margin="0,0,10,0"
                         VerticalContentAlignment="Center"
                         controls:TextBoxHelper.Watermark="Сервер Port:"
                         BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
-                        Text="{Binding PacsPort, Mode=TwoWay}"
+                        Text="{Binding MainPacsSource.PacsPort, Mode=TwoWay}"
                         ToolTip="PACS Port" />
 
-                    <!--  Called AE Title  -->
                     <TextBox
                         Grid.Column="3"
                         Margin="0,0,10,0"
                         VerticalContentAlignment="Center"
                         controls:TextBoxHelper.Watermark="Сервер - AE Title:"
                         BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
-                        Text="{Binding CalledAe, Mode=TwoWay}" />
+                        Text="{Binding MainPacsSource.CalledAe, Mode=TwoWay}" />
 
-                    <!--  Кнопка Echo  -->
                     <Button
                         Grid.Column="4"
-                        Width="100"
-                        Background="{Binding EchoStatus, Converter={StaticResource EchoStatusToColorConverter}}"
+                        Width="80"
+                        Background="{Binding MainPacsSource.EchoStatus, Converter={StaticResource EchoStatusToColorConverter}}"
                         Command="{Binding EchoCommand}"
-                        Content="Echo Test"
+                        Content="Echo"
                         ToolTip="Test connection to PACS" />
-
                 </Grid>
             </Grid>
 
             <Grid
-                Grid.Row="3"
+                Grid.Row="4"
                 Grid.ColumnSpan="3"
-                Margin="5,0,0,10"
-                IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=PACS}"
-                Opacity="{Binding SelectedDataSource, Converter={StaticResource BoolToOpacityConverter}, ConverterParameter=PACS}">
+                Margin="0,0,0,0">
 
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -247,11 +264,330 @@
                     Grid.Column="4"
                     Margin="10,0,0,0"
                     VerticalAlignment="Center"
-                    Text="{Binding CurrentLoadingMode, Mode=TwoWay}" />
+                    IsReadOnly="True"
+                    Text="{Binding CurrentLoadingMode}" />
+            </Grid>
+
+            <Grid
+                Grid.Row="5"
+                Grid.ColumnSpan="3"
+                Margin="0,0,0,0"
+                ShowGridLines="False">
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock
+                    Grid.Column="0"
+                    Margin="0,0,10,0"
+                    VerticalAlignment="Center"
+                    FontWeight="SemiBold"
+                    Text="Scan Mode:" />
+
+                <CheckBox
+                    Grid.Column="1"
+                    Margin="0,0,10,0"
+                    Content="All sources"
+                    IsChecked="{Binding IsAllScanSource}" />
+
+                <!--  ========== КНОПКИ ДОБАВЛЕНИЯ ==========  -->
+                <StackPanel
+                    Grid.Column="3"
+                    Grid.ColumnSpan="2"
+                    Margin="0,5,0,0"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal">
+                    <Button
+                        Width="80"
+                        Background="{DynamicResource MahApps.Brushes.Accent}"
+                        BorderThickness="0"
+                        Command="{Binding BrowseAdditionalFolderCommand}"
+                        Content="+ Папка" />
+
+                    <Button
+                        Width="80"
+                        Margin="5,0,0,0"
+                        Background="{DynamicResource MahApps.Brushes.Accent}"
+                        BorderThickness="0"
+                        Command="{Binding AddAdditionalPacsCommand}"
+                        Content="+ PACS" />
+                </StackPanel>
             </Grid>
 
             <Border
-                Grid.Row="4"
+                Grid.Row="7"
+                Grid.ColumnSpan="3"
+                MinHeight="40"
+                MaxHeight="185"
+                Margin="0,5"
+                BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
+                BorderThickness="3">
+                <ScrollViewer Margin="5" VerticalScrollBarVisibility="Auto">
+
+                    <StackPanel>
+
+                        <!--  ========== ДОПОЛНИТЕЛЬНЫЕ ИСТОЧНИКИ ==========  -->
+
+                        <!--  Дополнительные папки  -->
+                        <ItemsControl ItemsSource="{Binding AdditionalFolderSources}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,5">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <CheckBox Margin="10,0" IsChecked="{Binding IsEnabled}" />
+
+                                        <Border Grid.Column="1">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBox
+                                                    Margin="0,0,10,0"
+                                                    VerticalContentAlignment="Center"
+                                                    controls:TextBoxHelper.Watermark="Select a folder..."
+                                                    BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
+                                                    IsReadOnly="True"
+                                                    Text="{Binding FolderPath}" />
+
+                                                <Button
+                                                    Grid.Column="1"
+                                                    Width="80"
+                                                    Padding="10,8"
+                                                    Background="{DynamicResource MahApps.Brushes.Accent}"
+                                                    Command="{Binding BrowseCommand}"
+                                                    Content="Browse" />
+                                            </Grid>
+                                        </Border>
+
+                                        <!--  Кнопка удаления  -->
+                                        <Button
+                                            Grid.Column="2"
+                                            Width="24"
+                                            Height="24"
+                                            Margin="5,0,0,0"
+                                            Padding="1"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Command="{Binding DataContext.RemoveAdditionalFolderCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}"
+                                            Content="✕"
+                                            FontSize="12"
+                                            Foreground="Red"
+                                            ToolTip="Удалить источник" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!--  Дополнительные PACS  -->
+                        <ItemsControl ItemsSource="{Binding AdditionalPacsSources}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border
+                                        Margin="0,0,0,5"
+                                        BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
+                                        BorderThickness="0"
+                                        CornerRadius="4">
+                                        <Grid Margin="0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!--  Чекбокс включения  -->
+                                            <CheckBox
+                                                Grid.Column="0"
+                                                Margin="10,0,10,0"
+                                                VerticalAlignment="Center"
+                                                IsChecked="{Binding IsEnabled}" />
+
+                                            <!--  Основной контент  -->
+                                            <Grid Grid.Column="1">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+
+                                                <!--  Заголовок с названием  -->
+                                                <Expander
+                                                    Grid.Row="0"
+                                                    Background="Transparent"
+                                                    BorderThickness="1"
+                                                    FontWeight="SemiBold"
+                                                    Header="{Binding Name}"
+                                                    IsExpanded="{Binding IsExpanded}">
+
+                                                    <Grid Margin="0,10,0,0" ShowGridLines="False">
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto" />
+                                                            <RowDefinition Height="Auto" />
+                                                            <RowDefinition Height="Auto" />
+                                                            <RowDefinition Height="Auto" />
+                                                        </Grid.RowDefinitions>
+
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!--  Строка 0: Название (редактируемое)  -->
+                                                        <TextBox
+                                                            Grid.Row="0"
+                                                            Grid.Column="0"
+                                                            Grid.ColumnSpan="9"
+                                                            Margin="0,0,0,5"
+                                                            controls:TextBoxHelper.Watermark="Название PACS..."
+                                                            FontWeight="SemiBold"
+                                                            Text="{Binding Name}" />
+
+                                                        <!--  Строка 1: Параметры  -->
+                                                        <TextBlock
+                                                            Grid.Row="1"
+                                                            Grid.Column="0"
+                                                            Margin="0,0,5,0"
+                                                            VerticalAlignment="Center"
+                                                            FontSize="11"
+                                                            Text="Calling AE:" />
+
+                                                        <TextBox
+                                                            Grid.Row="1"
+                                                            Grid.Column="1"
+                                                            Height="24"
+                                                            Margin="0,0,10,0"
+                                                            VerticalContentAlignment="Center"
+                                                            controls:TextBoxHelper.Watermark="Calling AE"
+                                                            FontSize="11"
+                                                            Text="{Binding CallingAe, Mode=TwoWay}" />
+
+                                                        <TextBlock
+                                                            Grid.Row="1"
+                                                            Grid.Column="2"
+                                                            Margin="0,0,5,0"
+                                                            VerticalAlignment="Center"
+                                                            FontSize="11"
+                                                            Text="Host:" />
+
+                                                        <TextBox
+                                                            Grid.Row="1"
+                                                            Grid.Column="3"
+                                                            Height="24"
+                                                            Margin="0,0,10,0"
+                                                            VerticalContentAlignment="Center"
+                                                            controls:TextBoxHelper.Watermark="Host"
+                                                            FontSize="11"
+                                                            Text="{Binding PacsHost, Mode=TwoWay}" />
+
+                                                        <TextBlock
+                                                            Grid.Row="1"
+                                                            Grid.Column="4"
+                                                            Margin="0,0,5,0"
+                                                            VerticalAlignment="Center"
+                                                            FontSize="11"
+                                                            Text="Port:" />
+
+                                                        <TextBox
+                                                            Grid.Row="1"
+                                                            Grid.Column="5"
+                                                            Height="24"
+                                                            Margin="0,0,10,0"
+                                                            VerticalContentAlignment="Center"
+                                                            controls:TextBoxHelper.Watermark="Port"
+                                                            FontSize="11"
+                                                            Text="{Binding PacsPort, Mode=TwoWay}" />
+
+                                                        <TextBlock
+                                                            Grid.Row="1"
+                                                            Grid.Column="6"
+                                                            Margin="0,0,5,0"
+                                                            VerticalAlignment="Center"
+                                                            FontSize="11"
+                                                            Text="Called AE:" />
+
+                                                        <TextBox
+                                                            Grid.Row="1"
+                                                            Grid.Column="7"
+                                                            Height="24"
+                                                            Margin="0,0,10,0"
+                                                            VerticalContentAlignment="Center"
+                                                            controls:TextBoxHelper.Watermark="Called AE"
+                                                            FontSize="11"
+                                                            Text="{Binding CalledAe, Mode=TwoWay}" />
+
+                                                        <!--  Кнопка Echo  -->
+                                                        <Button
+                                                            Grid.Row="1"
+                                                            Grid.Column="8"
+                                                            Width="50"
+                                                            Height="24"
+                                                            Background="{Binding EchoStatus, Converter={StaticResource EchoStatusToColorConverter}}"
+                                                            Command="{Binding EchoCommand}"
+                                                            Content="Echo"
+                                                            FontSize="10"
+                                                            ToolTip="Test connection to PACS" />
+
+                                                        <!--  Строка 3: Статус  -->
+                                                        <TextBlock
+                                                            Grid.Row="3"
+                                                            Grid.Column="0"
+                                                            Grid.ColumnSpan="9"
+                                                            Margin="0,5,0,0"
+                                                            FontSize="11"
+                                                            Foreground="{Binding EchoStatus, Converter={StaticResource EchoStatusToColorConverter}}"
+                                                            Text="{Binding EchoStatus}" />
+                                                    </Grid>
+
+
+                                                </Expander>
+                                            </Grid>
+
+                                            <!--  Кнопка удаления  -->
+                                            <Button
+                                                Grid.Column="2"
+                                                Width="24"
+                                                Height="24"
+                                                Margin="5,0,0,0"
+                                                Padding="1"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Command="{Binding DataContext.RemoveAdditionalPacsCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"
+                                                Content="✕"
+                                                FontSize="12"
+                                                Foreground="Red"
+                                                ToolTip="Удалить PACS" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+
+                    </StackPanel>
+
+                </ScrollViewer>
+            </Border>
+
+            <Border
+                Grid.Row="8"
                 Grid.ColumnSpan="3"
                 BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
                 BorderThickness="3">
@@ -266,6 +602,7 @@
                         IsReadOnly="True"
                         ItemsSource="{Binding PreviewPatients}"
                         ScrollViewer.IsDeferredScrollingEnabled="True"
+                        VirtualizingPanel.IsVirtualizing="True"
                         VirtualizingPanel.IsVirtualizingWhenGrouping="True"
                         VirtualizingPanel.ScrollUnit="Pixel"
                         VirtualizingPanel.VirtualizationMode="Recycling">
@@ -291,7 +628,7 @@
 
             <Border
                 x:Name="OutputText"
-                Grid.Row="5"
+                Grid.Row="9"
                 Grid.ColumnSpan="3"
                 Margin="0,5"
                 BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
@@ -309,7 +646,7 @@
             </Border>
 
             <StackPanel
-                Grid.Row="6"
+                Grid.Row="10"
                 Grid.Column="1"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Bottom"
@@ -317,24 +654,15 @@
                 Visibility="{Binding CanCancel, Converter={StaticResource InverseBoolToVisibilityConverter}}">
 
                 <Button
-                    Width="100"
+                    Width="120"
                     Margin="10,0"
                     Background="{DynamicResource MahApps.Brushes.Accent}"
                     Command="{Binding ScanDicomCommand}"
-                    Content="Scan Folder"
-                    IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Folder}" />
-
-                <Button
-                    Width="100"
-                    Margin="10,0"
-                    Background="{DynamicResource MahApps.Brushes.Accent}"
-                    Command="{Binding ScanDicomCommand}"
-                    Content="Scan PACS"
-                    IsEnabled="{Binding SelectedDataSource, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=PACS}" />
+                    Content="Scan sources" />
             </StackPanel>
 
             <StackPanel
-                Grid.Row="6"
+                Grid.Row="10"
                 Grid.Column="2"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Bottom"
@@ -359,7 +687,7 @@
 
             <Grid
                 Grid.Row="0"
-                Grid.RowSpan="7"
+                Grid.RowSpan="11"
                 Grid.Column="0"
                 Grid.ColumnSpan="3"
                 HorizontalAlignment="Stretch"
