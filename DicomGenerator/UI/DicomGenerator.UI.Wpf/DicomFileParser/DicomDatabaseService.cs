@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using DicomGenerator.Core.Enums;
 using DicomGenerator.Core.Extensions;
 using DicomGenerator.Core.LiteDbModels;
 using DicomGenerator.UI.Wpf.LiteDbCore;
@@ -22,6 +23,7 @@ namespace DicomGenerator.UI.Wpf.DicomFileParser
 
 
         public void SaveToDatabase(List<DicomFileInfo> dicomFiles,
+            DatabaseSaveMode mode,
             IProgress<(int Percent, string Message)> progress = null,
             CancellationToken cancellationToken = default)
         {
@@ -55,6 +57,12 @@ namespace DicomGenerator.UI.Wpf.DicomFileParser
                 cancellationToken.ThrowIfCancellationRequested();
 
                 SavePatient(patientGroup.First().Patient, patientsToInsert, patientIds);
+
+                if(mode == DatabaseSaveMode.PatientsOnly)
+                {
+                    processed += patientGroup.Count();
+                    continue;
+                }
 
                 var studies = patientGroup
                     .GroupBy(x => x.Study.StudyInstanceUid);
