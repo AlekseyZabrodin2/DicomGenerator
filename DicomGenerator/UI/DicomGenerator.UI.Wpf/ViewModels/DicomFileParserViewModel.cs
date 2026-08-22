@@ -33,6 +33,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         private readonly LocalPacsSource _localPacsSource;
         private ObservableCollection<PatientLiteDb> _previewPatients;
         private string _databasePath = string.Empty;
+        private string _errorMessage = string.Empty;
         private CancellationTokenSource _cancellationTokenSource;
         private CancellationTokenSource? _busyAnimationCts;
         private PacsLoadingMode _loadingMode;
@@ -175,6 +176,8 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
         public ICommand RemoveAdditionalFolderCommand { get; }
         public ICommand RemoveAdditionalPacsCommand { get; }
+        public event Action BusyAnimationStarted;
+        public event Action BusyAnimationStopped;
 
 
         public DicomFileParserViewModel()
@@ -389,6 +392,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         {
             var stopwatch = Stopwatch.StartNew();
 
+            _errorMessage = string.Empty;
             OutputText = string.Empty;
             PreviewPatients?.Clear();
             ScannedDicomFiles?.Clear();
@@ -444,8 +448,17 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                         BusyMessage = $"Архив: сканирование - {folder.FolderPath} {p.Message}";
                     });
 
-                    var results = await _scanner.ScanFolderAsync(folder.FolderPath, progress, token);
-                    allResults.AddRange(results);
+                    try
+                    {
+                        StartBusyAnimation("Получение данных из Архива ");
+
+                        var results = await _scanner.ScanFolderAsync(folder.FolderPath, progress, token);
+                        allResults.AddRange(results);
+                    }
+                    finally
+                    {
+                        StopBusyAnimation();
+                    }
                 }
 
                 foreach (var pacs in activePacs)
@@ -471,12 +484,12 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                     var progress = new Progress<(int Percent, string Message)>(p =>
                     {
                         CurrentProgress = p.Percent;
-                        BusyMessage =$"{displayName} : {p.Message}";
+                        BusyMessage = $"{displayName} : {p.Message}";
                     });
 
                     try
                     {
-                        StartBusyAnimation("Получение данных из PACS ", animationToken);
+                        StartBusyAnimation("Получение данных из PACS ");
 
                         var results = await LoadFromPacsAsync(client, LoadingMode, progress, token, animationToken);
                         allResults.AddRange(results);
@@ -486,13 +499,25 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                         StopBusyAnimation();
                     }
                 }
-
+                
+                stopwatch.Stop();
+            }
+            catch (OperationCanceledException)
+            {
+                _errorMessage = "\n\nСканирование отменено пользователем.";
+                SetOutputError(_errorMessage);
+            }
+            catch (Exception ex)
+            {
+                _errorMessage = $"\n\nОшибка Pacs: {ex.Message}";
+                SetOutputError(_errorMessage);
+            }
+            finally
+            {
                 ScannedDicomFiles = allResults;
                 PreviewPatients = BuildPreviewPatients(allResults);
 
                 var stats = GetStatistics(allResults);
-
-                stopwatch.Stop();
 
                 var timeString = FormatTimeSpan(stopwatch.Elapsed);
 
@@ -501,18 +526,9 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                     $"Серий - [{stats.Series}], " +
                     $"Изображений - [{stats.Images}].\n" +
                     $"Источников: {totalSources} (папок: {activeFolders.Count}, PACS: {activePacs.Count})\n" +
-                    $"Время выполнения: {timeString}");
-            }
-            catch (OperationCanceledException)
-            {
-                SetOutputError("Сканирование отменено пользователем.");
-            }
-            catch (Exception ex)
-            {
-                SetOutputError($"Ошибка: {ex.Message}");
-            }
-            finally
-            {
+                    $"Время выполнения: {timeString}" +
+                    $"{_errorMessage}");
+
                 StopBusy();
 
                 _cancellationTokenSource?.Dispose();
@@ -808,13 +824,13 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                 if (responseStatus?.State == DicomState.Success)
                 {
                     SetOutputInfo($"PacS - [ {pacs.CalledAe} ] connected successful! ({pacs.PacsHost} : {pacs.PacsPort})");
-                    EchoStatus = OutputText;
+                    pacs.EchoStatus = OutputText;
                     await SaveConfigAsync();
                 }
                 else
                 {
                     SetOutputWarning($"PACS вернул статус: {responseStatus}");
-                    EchoStatus = OutputText;
+                    pacs.EchoStatus = OutputText;
                 }
 
                 pacs.EchoStatus = OutputText;
@@ -822,7 +838,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             catch (Exception ex)
             {
                 SetOutputError($"error: {ex.Message}", ex);
-                EchoStatus = OutputText;
+                pacs.EchoStatus = OutputText;
             }
         }
 
@@ -1024,36 +1040,16 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             };
         }
 
-        private void StartBusyAnimation(string message, CancellationTokenSource token)
+        private void StartBusyAnimation(string message)
         {
-            _ = Task.Run(async () =>
-            {
-                var dots = 0;
-
-                try
-                {
-                    while (!token.IsCancellationRequested)
-                    {
-                        var suffix = new string('.', dots);
-
-                        await Application.Current.Dispatcher.InvokeAsync(() =>
-                        {
-                            BusyMessage = $"{message}{suffix}";
-                        });
-
-                        dots = (dots + 1) % 4;
-
-                        await Task.Delay(500, token.Token);
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                }
-            }, token.Token);
+            BusyAnimationStarted?.Invoke();
+            BusyMessage = $"{message}";
         }
 
         private void StopBusyAnimation()
         {
+            BusyAnimationStopped?.Invoke();
+
             _busyAnimationCts?.Cancel();
             _busyAnimationCts?.Dispose();
             _busyAnimationCts = null;
