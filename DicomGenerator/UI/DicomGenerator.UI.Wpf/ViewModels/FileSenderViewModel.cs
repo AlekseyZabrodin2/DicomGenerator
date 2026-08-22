@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -106,30 +107,40 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
                 var scanProgress = CreateProgress();
 
-                var dicomRequests = new List<DicomRequest>(dicomFiles.Length);
-
-                foreach (var filePath in dicomFiles)
+                const int batchSize = 500;
+                                
+                for (var i = 0; i < dicomFiles.Length; i += batchSize)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    var dicomFile = DicomFile.Open(filePath);
-                    var storeRequest = new DicomCStoreRequest(dicomFile);
+                    var batch = dicomFiles.Skip(i).Take(batchSize);
 
-                    storeRequest.OnResponseReceived += (_, response) =>
+                    var requests = new List<DicomRequest>();
+
+                    foreach (var filePath in batch)
                     {
-                        Interlocked.Increment(ref fileCount);
+                        cancellationToken.ThrowIfCancellationRequested();
 
-                        var percent = fileCount * 100 / dicomFiles.Length;
+                        var dicomFile = await DicomFile.OpenAsync(filePath);
 
-                        scanProgress.Report((percent, $"DICOM файл {fileCount} из {dicomFiles.Length} отправлен успешно."));
-                    };
+                        var storeRequest = new DicomCStoreRequest(dicomFile);
 
-                    dicomRequests.Add(storeRequest);
+                        storeRequest.OnResponseReceived += (_, response) =>
+                        {
+                            if (response.Status.State == DicomState.Success)
+                            {
+                                Interlocked.Increment(ref fileCount);
+
+                                var percent = fileCount * 100 / dicomFiles.Length;
+                                scanProgress.Report((percent, $"DICOM файл {fileCount} из {dicomFiles.Length} отправлен успешно."));
+                            }
+                        };
+
+                        requests.Add(storeRequest);
+                    }
+                    await client.AddRequestsAsync(requests);
+                    await client.SendAsync(cancellationToken, cancellationMode: DicomClientCancellationMode.ImmediatelyReleaseAssociation);
                 }
-
-                await client.AddRequestsAsync(dicomRequests);
-
-                await client.SendAsync(cancellationToken, cancellationMode: DicomClientCancellationMode.ImmediatelyReleaseAssociation);
             }
             catch (OperationCanceledException)
             {
