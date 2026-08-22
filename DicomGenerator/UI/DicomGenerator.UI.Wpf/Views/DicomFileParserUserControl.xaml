@@ -539,7 +539,8 @@
                                                             Width="50"
                                                             Height="24"
                                                             Background="{Binding EchoStatus, Converter={StaticResource EchoStatusToColorConverter}}"
-                                                            Command="{Binding EchoCommand}"
+                                                            Command="{Binding DataContext.EchoAdditionalPacsCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                            CommandParameter="{Binding}"
                                                             Content="Echo"
                                                             FontSize="10"
                                                             ToolTip="Test connection to PACS" />
@@ -551,11 +552,9 @@
                                                             Grid.ColumnSpan="9"
                                                             Margin="0,5,0,0"
                                                             FontSize="11"
-                                                            Foreground="{Binding EchoStatus, Converter={StaticResource EchoStatusToColorConverter}}"
-                                                            Text="{Binding EchoStatus}" />
+                                                            Foreground="{Binding DataContext.EchoStatus, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource EchoStatusToColorConverter}}"
+                                                            Text="{Binding DataContext.EchoStatus, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                                     </Grid>
-
-
                                                 </Expander>
                                             </Grid>
 
