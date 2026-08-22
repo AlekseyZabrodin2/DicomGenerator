@@ -42,25 +42,7 @@ namespace DicomGenerator.UI.Wpf.Models
 
         public PacsSource()
         {
-            Name = $"Новый PACS {_num++}" ;
-        }
-
-
-        [RelayCommand]
-        private async Task EchoAsync()
-        {
-            var client = DicomClientFactory.Create(PacsHost, int.Parse(PacsPort), false, CallingAe, CalledAe);
-            var echoRequest = new DicomCEchoRequest();
-            try
-            {
-                await client.AddRequestAsync(echoRequest);
-                await client.SendAsync();
-                EchoStatus = "Pacs successfully connected";
-            }
-            catch(Exception ex)
-            {
-                EchoStatus = $"Failed - [{ex.Message}]";
-            }
+            Name = $"Новый PACS {_num++}";
         }
     }
 }

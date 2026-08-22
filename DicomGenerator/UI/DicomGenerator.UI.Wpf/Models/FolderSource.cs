@@ -13,7 +13,7 @@ namespace DicomGenerator.UI.Wpf.Models
         public partial string FolderPath { get; set; }
 
         [ObservableProperty]
-        public partial bool IsEnabled { get; set; } = false;
+        public partial bool IsEnabled { get; set; }
 
 
 
