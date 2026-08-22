@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using DicomGenerator.Core.DicomGeneratorModels;
 using DicomGenerator.Core.LiteDbModels;
+using DicomGenerator.UI.Wpf.DicomFileParser;
 using NLog;
 
 namespace DicomGenerator.Core.DicomFileParser
@@ -64,11 +66,15 @@ namespace DicomGenerator.Core.DicomFileParser
             var seriesUids = new HashSet<string>();
             var imageUids = new HashSet<string>();
 
+            var estimator = new ScanTimeEstimator();
+
             var parsedCount = 0;
 
             foreach (var file in files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+
+                var stopwatch = Stopwatch.StartNew();
 
                 try
                 {
@@ -104,13 +110,27 @@ namespace DicomGenerator.Core.DicomFileParser
                         results.Add(info);
 
                         parsedCount++;
-                        var percent = (int)((double)parsedCount / files.Length * 100);
-                        progress?.Report((percent, "Сканирование директории ... "));
                     }
                 }
                 catch (Exception ex)
                 {
                     _logger?.Error($"Error parsing {file}: {ex.Message}");
+                }
+                finally
+                {
+                    stopwatch.Stop();
+
+                    estimator.Add(stopwatch.Elapsed);
+
+                    var remaining = files.Length - parsedCount;
+                    var remainingTime = estimator.GetRemainingTime(remaining);
+
+                    var percent = (int)((double)parsedCount / files.Length * 100);
+
+                    progress?.Report((
+                        percent,
+                        $"\nСканирование файлов ... {parsedCount}/{files.Length}" +
+                        $"\nОсталось времени примерно: {estimator.FormatTimeSpan(remainingTime)}"));
                 }
             }
 
