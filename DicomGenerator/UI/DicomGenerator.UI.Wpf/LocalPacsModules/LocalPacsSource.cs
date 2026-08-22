@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,14 +9,17 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using DicomGenerator.Core.DicomFileParser;
 using DicomGenerator.Core.DicomGeneratorModels;
 using DicomGenerator.Core.LiteDbModels;
+using DicomGenerator.UI.Wpf.DicomFileParser;
 using FellowOakDicom;
 using FellowOakDicom.Network;
 using FellowOakDicom.Network.Client;
+using NLog;
 
 namespace DicomGenerator.UI.Wpf.LocalPacsModules
 {
     public partial class LocalPacsSource : ObservableObject
     {
+        private static readonly ILogger _logger = LogManager.GetCurrentClassLogger();
         private readonly DicomParser _parser;
 
         [ObservableProperty]
@@ -44,7 +48,8 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
 
         public async Task<List<DicomFileInfo>> LoadDicomMetadataAsync(IDicomClient client,
             IProgress<(int Percent, string Message)> progress,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            CancellationTokenSource animationCts = default)
         {
             PreviewPatients = new();
             PatientsCount = 0;
@@ -54,10 +59,17 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
 
             var results = new List<DicomFileInfo>();
 
-            var studies = await LoadStudiesAsync(client, cancellationToken);
+            var studies = await LoadStudiesAsync(client, progress, cancellationToken);
             StudiesCount = studies.Count;
 
+            var estimator = new ScanTimeEstimator();
+
             var processed = 0;
+
+            if (animationCts != null)
+            {
+                animationCts.Cancel();
+            }
 
             foreach (var studyDataset in studies)
             {
@@ -77,21 +89,34 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
                 var studyUid = studyDataset.GetSingleValueOrDefault<string>(DicomTag.StudyInstanceUID, string.Empty);
 
                 if (string.IsNullOrEmpty(studyUid))
+                {
                     continue;
+                }                   
+
+                var stopwatch = Stopwatch.StartNew();
 
                 var studyFiles = await LoadSeriesAsync(client, studyUid, studyInfo.Patient, studyInfo.Study, cancellationToken);
+
+                stopwatch.Stop();
+
+                estimator.Add(stopwatch.Elapsed);
 
                 results.AddRange(studyFiles);
 
                 processed++;
+
+                var remaining = studies.Count - processed;
+                var remainingTime = estimator.GetRemainingTime(remaining);
+
                 var percent = (int)((double)processed / studies.Count * 100);
-                progress?.Report((percent, "Сканирование исследований ... "));
+                progress?.Report((percent, $"Сканирование исследований ... {processed}/{studies.Count}"+
+                $"\nОсталось времени примерно: {estimator.FormatTimeSpan(remainingTime)}"));
             }
 
             return results;
         }
 
-        private async Task<List<DicomDataset>> LoadStudiesAsync(IDicomClient client, CancellationToken cancellationToken)
+        private async Task<List<DicomDataset>> LoadStudiesAsync(IDicomClient client, IProgress<(int Percent, string Message)> progress, CancellationToken cancellationToken)
         {
             var result = new List<DicomDataset>();
 
@@ -108,6 +133,8 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
                     if (response.Dataset != null)
                     {
                         result.Add(response.Dataset);
+
+                        progress?.Report((0, $"Получение исследований ... {result.Count}"));
                     }
                 }
                 else
@@ -120,15 +147,13 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
 
             await client.AddRequestAsync(request);
 
-            await client.SendAsync();
-
-            await tcs.Task;
+            await client.SendAsync(cancellationToken, DicomClientCancellationMode.ImmediatelyAbortAssociation);
 
             return result;
         }
 
         private async Task<List<DicomFileInfo>> LoadSeriesAsync(IDicomClient client, 
-            string studyUid, PatientLiteDb patient, 
+            string studyUid, PatientLiteDb patient,
             StudyLiteDb study, CancellationToken cancellationToken)
         {
             var results = new List<DicomFileInfo>();
@@ -157,10 +182,7 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
             cancellationToken.ThrowIfCancellationRequested();
 
             await client.AddRequestAsync(request);
-            await client.SendAsync();
-
-            await tcs.Task;
-
+            await client.SendAsync(cancellationToken, DicomClientCancellationMode.ImmediatelyAbortAssociation);
 
             foreach (var seriesDataset in seriesDatasets)
             {
@@ -198,7 +220,7 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
         }
 
         private async Task<List<ImageLiteDb>> LoadImagesAsync(IDicomClient client, 
-            string studyUid, string seriesUid, 
+            string studyUid, string seriesUid,
             CancellationToken cancellationToken)
         {
             var results = new List<ImageLiteDb>();
@@ -214,7 +236,9 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
                 if (response.Status == DicomStatus.Pending)
                 {
                     if (response.Dataset != null)
+                    {
                         images.Add(response.Dataset);
+                    }                        
                 }
                 else
                 {
@@ -225,9 +249,7 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
             cancellationToken.ThrowIfCancellationRequested();
 
             await client.AddRequestAsync(request);
-            await client.SendAsync();
-
-            await tcs.Task;
+            await client.SendAsync(cancellationToken, DicomClientCancellationMode.ImmediatelyAbortAssociation);
 
             foreach (var dataset in images)
             {
@@ -248,7 +270,8 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
 
         public async Task<List<DicomFileInfo>> LoadDicomMetadataFastAsync(IDicomClient client,
             IProgress<(int Percent, string Message)> progress,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            CancellationTokenSource animationCts = default)
         {
             PreviewPatients = new();
 
@@ -257,9 +280,14 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
             SeriesCount = 0;
             ImagesCount = 0;
 
-            progress?.Report((0, "Сканирование PACS..."));
+            progress?.Report((0, "Сканирование ..."));
 
             var datasets = await LoadAllImagesAsync(client, progress, cancellationToken);
+
+            if (animationCts != null)
+            {
+                animationCts.Cancel();
+            }
 
             var result = new List<DicomFileInfo>();
 
@@ -272,6 +300,8 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
             var processed = 0;
 
             cancellationToken.ThrowIfCancellationRequested();
+
+            progress?.Report((0, $"Обработка DICOM: 0/{total}..."));
 
             foreach (var dataset in datasets)
             {
@@ -350,11 +380,15 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
             }
 
             Exception pacsException = null;
+
             void Handler(DicomCFindRequest _, DicomCFindResponse response)
             {
                 if (response.Status == DicomStatus.Pending && response.Dataset != null)
                 {
                     images.Add(response.Dataset);
+
+                    progress?.Report((0, $"Получение данных ... {images.Count}"));
+
                     return;
                 }
                 if (response.Status.State == DicomState.Failure)
@@ -367,8 +401,12 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
 
             try
             {
+                _logger.Info("C-FIND Image started.");
+
                 await client.AddRequestAsync(request);
                 await client.SendAsync(cancellationToken, DicomClientCancellationMode.ImmediatelyAbortAssociation);
+
+                _logger.Info("C-FIND SendAsync completed. Images: {Count}", images.Count);
 
                 if (pacsException != null)
                     throw pacsException;
