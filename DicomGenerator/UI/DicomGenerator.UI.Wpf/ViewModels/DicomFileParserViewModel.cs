@@ -6,12 +6,14 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DicomGenerator.Core.DicomFileParser;
 using DicomGenerator.Core.Enums;
 using DicomGenerator.Core.LiteDbModels;
+using DicomGenerator.UI.Wpf.Configuration;
 using DicomGenerator.UI.Wpf.DicomFileParser;
 using DicomGenerator.UI.Wpf.LiteDbCore;
 using DicomGenerator.UI.Wpf.LocalPacsModules;
@@ -25,12 +27,14 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 {
     public partial class DicomFileParserViewModel : ObservableObject
     {
-        private static readonly ILogger _logger = LogManager.GetCurrentClassLogger();
+        private static readonly ILogger _logger = LogManager.GetCurrentClassLogger(); 
+        private readonly AppConfigService _appConfigService = new();
         private readonly DicomFileScanner _scanner;
         private readonly LocalPacsSource _localPacsSource;
         private ObservableCollection<PatientLiteDb> _previewPatients;
         private string _databasePath = string.Empty;
         private CancellationTokenSource _cancellationTokenSource;
+        private CancellationTokenSource? _busyAnimationCts;
         private PacsLoadingMode _loadingMode;
         private bool _isFolderScanSource;
         private bool _isPacsScanSource;
@@ -84,10 +88,13 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         public partial bool PercentShow { get; set; }
 
         [ObservableProperty]
-        public partial PacsSource MainPacsSource { get; set; }
+        public partial PacsSource MainPacsSource { get; set; } = new();
 
         [ObservableProperty]
         public partial FolderSource MainFolderSource { get; set; } = new();
+
+        [ObservableProperty]
+        public partial string EchoStatus { get; set; }
 
         [ObservableProperty]
         public partial bool CanCancel { get; set; }
@@ -141,6 +148,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             {
                 if (SetProperty(ref _isFolderScanSource, value))
                 {
+                    MainFolderSource.IsEnabled = _isFolderScanSource;
                     OnPropertyChanged(nameof(IsAllScanSource));
                 }
             }
@@ -153,6 +161,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             {
                 if (SetProperty(ref _isPacsScanSource, value))
                 {
+                    MainPacsSource.IsEnabled = _isPacsScanSource;
                     OnPropertyChanged(nameof(IsAllScanSource));
                 }
             }
@@ -169,12 +178,13 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
 
         public DicomFileParserViewModel()
-        {
+        {            
             _scanner = new DicomFileScanner();
             _localPacsSource = new LocalPacsSource();
             PreviewPatients = new();
 
             InitialiseConnecting();
+            _ = LoadConfigAsync();
             InitialiseScanMode();
             UpdateLoadingModeDescription();
 
@@ -190,17 +200,19 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         {
             MainPacsSource = new ()
             {
-                Name ="Default",
+                Name = "PACS",
                 PacsHost = "127.0.0.1",
                 PacsPort = "4242",
                 CallingAe = "UNIEXPERT",
                 CalledAe = "ORTHANC",
-                LoadingMode = PacsLoadingMode.Auto
+                LoadingMode = PacsLoadingMode.Auto,
+                IsEnabled = true
             };
 
             MainFolderSource = new ()
             {
-                FolderPath = "E:\\DicomGeneratorResult\\"
+                FolderPath = "E:\\DicomGeneratorResult\\",
+                IsEnabled = true
             };
         }
 
@@ -215,8 +227,70 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             OnPropertyChanged(nameof(IsAllScanSource));
         }
 
+        public async Task LoadConfigAsync()
+        {
+            var config = await _appConfigService.LoadAsync();
+
+            LoadFolderSources(config.Sources.Folders);
+            LoadPacsSources(config.Sources.Pacs);
+        }
+
+        private void LoadFolderSources(List<FolderConfig> folders)
+        {
+            if (folders.Count == 0)
+                return;
+
+            var first = folders[0];
+
+            MainFolderSource.FolderPath = first.Path;
+            IsFolderScanSource = first.IsEnabled;
+
+            for (var i = 1; i < folders.Count; i++)
+            {
+                var config = folders[i];
+
+                AdditionalFolderSources.Add(new FolderSource
+                {
+                    FolderPath = config.Path,
+                    IsEnabled = config.IsEnabled
+                });
+            }
+        }
+
+        private void LoadPacsSources(List<PacsConfig> pacs)
+        {
+            if (pacs.Count == 0)
+                return;
+
+            var first = pacs[0];
+
+            MainPacsSource.Name = first.Name;
+            MainPacsSource.CallingAe = first.CallingAe;
+            MainPacsSource.PacsHost = first.PacsHost;
+            MainPacsSource.PacsPort = first.PacsPort;
+            MainPacsSource.CalledAe = first.CalledAe;
+            IsPacsScanSource = first.IsEnabled;
+            MainPacsSource.LoadingMode = first.LoadingMode;
+
+            for (var i = 1; i < pacs.Count; i++)
+            {
+                var config = pacs[i];
+
+                AdditionalPacsSources.Add(new PacsSource
+                {
+                    Name = config.Name,
+                    CallingAe = config.CallingAe,
+                    PacsHost = config.PacsHost,
+                    PacsPort = config.PacsPort,
+                    CalledAe = config.CalledAe,
+                    IsEnabled = config.IsEnabled,
+                    LoadingMode = config.LoadingMode
+                });
+            }
+        }
+
         [RelayCommand]
-        private void BrowseFolder()
+        private async Task BrowseFolder()
         {
             var dialog = new OpenFolderDialog();
             if (dialog.ShowDialog() == true)
@@ -224,12 +298,14 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                 MainFolderSource.FolderPath = dialog.FolderName;
 
                 var allFiles = Directory.GetFiles(MainFolderSource.FolderPath, "*.*", SearchOption.AllDirectories);
-                OutputText = $"Found {allFiles.Length} files in folder";
+                SetOutputInfo($"Found {allFiles.Length} files in folder");
             }
+
+            await SaveConfigAsync();
         }
 
         [RelayCommand]
-        private void BrowseAdditionalFolder()
+        private async Task BrowseAdditionalFolder()
         {
             var folder = new FolderSource();
 
@@ -240,7 +316,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                 folder.IsEnabled = true;
 
                 var allFiles = Directory.GetFiles(folder.FolderPath, "*.*", SearchOption.AllDirectories);
-                OutputText = $"Found {allFiles.Length} files in folder";
+                SetOutputInfo($"Found {allFiles.Length} files in folder");
             }
 
             folder.PropertyChanged += (s, e) =>
@@ -250,6 +326,8 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             };
 
             AdditionalFolderSources.Add(folder);
+
+            await SaveConfigAsync();
         }
 
         private void RemoveAdditionalFolder(FolderSource item)
@@ -296,7 +374,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         {
             if (string.IsNullOrWhiteSpace(DatabasePath))
             {
-                OutputText = "Не выбран файл базы данных";
+                SetOutputInfo("Не выбран файл базы данных");
 
                 throw new InvalidOperationException(OutputText);
             }
@@ -316,6 +394,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             ScannedDicomFiles?.Clear();
 
             var token = CreateCancellationToken();
+            var animationToken = CreateCancellationTokenAnimation();
             var allResults = new List<DicomFileInfo>();
 
             var activeFolders = new List<FolderSource>();
@@ -338,7 +417,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
             if (totalSources == 0)
             {
-                OutputText = "Нет активных источников.";
+                SetOutputInfo("Нет активных источников.");
                 return;
             }
 
@@ -354,14 +433,15 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
                     sourceIndex++;
 
-                    BusyMessage =
-                        $"Сканирование папки {folder.FolderPath} " +
-                        $"({sourceIndex}/{totalSources})";
+                    SetBusyInfo($"Сканирование архива {folder.FolderPath} " +
+                    $"({sourceIndex}/{totalSources})");
+
+                    SetBusyState(BusyMessage, true);
 
                     var progress = new Progress<(int Percent, string Message)>(p =>
                     {
                         CurrentProgress = p.Percent;
-                        BusyMessage = $"Папка: {p.Message}";
+                        BusyMessage = $"Архив: сканирование - {folder.FolderPath} {p.Message}";
                     });
 
                     var results = await _scanner.ScanFolderAsync(folder.FolderPath, progress, token);
@@ -374,26 +454,37 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
                     sourceIndex++;
 
-                    BusyMessage =
-                        $"Сканирование PACS {pacs.Name} " +
-                        $"({sourceIndex}/{totalSources})";
+                    var displayName = GetDisplayName(pacs);
+
+                    SetBusyInfo($"Сканирование - {displayName}");
+
+                    SetBusyState(BusyMessage, false);
 
                     var client = CreateClientFromCollection(pacs);
 
                     if (client == null)
                     {
-                        OutputText += $"\nНе удалось подключиться к {pacs.Name}";
+                        SetOutputWarning($"\nНе удалось подключиться к {displayName}");
                         continue;
                     }
 
                     var progress = new Progress<(int Percent, string Message)>(p =>
                     {
                         CurrentProgress = p.Percent;
-                        BusyMessage = $"PACS {pacs.Name}: {p.Message}";
+                        BusyMessage =$"{displayName} : {p.Message}";
                     });
 
-                    var results = await LoadFromPacsAsync(client,pacs.LoadingMode, progress, token);
-                    allResults.AddRange(results);
+                    try
+                    {
+                        StartBusyAnimation("Получение данных из PACS ", animationToken);
+
+                        var results = await LoadFromPacsAsync(client, LoadingMode, progress, token, animationToken);
+                        allResults.AddRange(results);
+                    }
+                    finally
+                    {
+                        StopBusyAnimation();
+                    }
                 }
 
                 ScannedDicomFiles = allResults;
@@ -405,20 +496,20 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
                 var timeString = FormatTimeSpan(stopwatch.Elapsed);
 
-                OutputText = $"Всего: Пациентов - [{stats.Patients}], " +
+                SetOutputInfo($"Всего: Пациентов - [{stats.Patients}], " +
                     $"Исследований - [{stats.Studies}], " +
                     $"Серий - [{stats.Series}], " +
                     $"Изображений - [{stats.Images}].\n" +
                     $"Источников: {totalSources} (папок: {activeFolders.Count}, PACS: {activePacs.Count})\n" +
-                    $"Время выполнения: {timeString}";
+                    $"Время выполнения: {timeString}");
             }
             catch (OperationCanceledException)
             {
-                OutputText = "Сканирование отменено пользователем.";
+                SetOutputError("Сканирование отменено пользователем.");
             }
             catch (Exception ex)
             {
-                OutputText = $"Ошибка: {ex.Message}";
+                SetOutputError($"Ошибка: {ex.Message}");
             }
             finally
             {
@@ -478,29 +569,42 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             IDicomClient client,
             PacsLoadingMode loadingMode,
             IProgress<(int Percent, string Message)> progress,
-            CancellationToken token)
+            CancellationToken token,
+            CancellationTokenSource animationToken)
         {
-            return loadingMode switch
+            switch (loadingMode)
             {
-                PacsLoadingMode.Fast => await _localPacsSource.LoadDicomMetadataFastAsync(client, progress, token),
-                PacsLoadingMode.Compatible => await _localPacsSource.LoadDicomMetadataAsync(client, progress, token),
-                _ => await LoadWithFallbackAsync(client, progress, token)
-            };
+                case PacsLoadingMode.Fast:
+                    var fastResult = await _localPacsSource.LoadDicomMetadataFastAsync(
+                        client, progress, token, animationToken);
+                    return fastResult;
+
+                case PacsLoadingMode.Compatible:
+                    SetBusyState(BusyMessage, true);
+                    return await _localPacsSource.LoadDicomMetadataAsync(
+                        client, progress, token, animationToken);
+
+                default:
+                    return await LoadWithFallbackAsync(
+                        client, progress, token, animationToken);
+            }
         }
 
         private async Task<List<DicomFileInfo>> LoadWithFallbackAsync(
             IDicomClient client,
             IProgress<(int Percent, string Message)> progress,
-            CancellationToken token)
+            CancellationToken token,
+            CancellationTokenSource animationToken)
         {
             try
             {
-                return await _localPacsSource.LoadDicomMetadataFastAsync(client, progress, token);
+                return await _localPacsSource.LoadDicomMetadataFastAsync(client, progress, token, animationToken);
             }
-            catch (DicomNetworkException)
+            catch (DicomNetworkException ex)
             {
-                BusyMessage = "Быстрый режим не поддерживается. Переключение на совместимый...";
-                return await _localPacsSource.LoadDicomMetadataAsync(client, progress, token);
+                SetBusyState("",true);
+                SetBusyWarning("Быстрый режим не поддерживается. Переключение на совместимый...", ex);
+                return await _localPacsSource.LoadDicomMetadataAsync(client, progress, token, animationToken);
             }
         }
 
@@ -511,32 +615,30 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                 return;
 
             _cancellationTokenSource.Cancel();
-            OutputText = "Операция отменена пользователем.";
+            SetOutputInfo("Операция отменена пользователем.");
         }
 
-        private IDicomClient CreateClient()
+        private IDicomClient CreateClient(PacsSource pacs)
         {            
             try
             {
-                if (!int.TryParse(MainPacsSource.PacsPort, out var pacsPort))
+                if (!int.TryParse(pacs.PacsPort, out var pacsPort))
                 {
-                    MainPacsSource.EchoStatus = "Invalid port";
+                    pacs.EchoStatus = "Invalid port";
                     return null;
                 }
 
                 return DicomClientFactory.Create(
-                    MainPacsSource.PacsHost,
+                    pacs.PacsHost,
                     pacsPort,
                     false,
-                    MainPacsSource.CallingAe,
-                    MainPacsSource.CalledAe);
+                    pacs.CallingAe,
+                    pacs.CalledAe);
 
             }
             catch (Exception ex)
             {
-                OutputText = $"Error creating PACS client: {ex.Message}";
-                _logger.Error(OutputText);
-
+                SetOutputError($"Error creating PACS client: {ex.Message}", ex);
                 return null;
             }
         }
@@ -561,9 +663,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             }
             catch (Exception ex)
             {
-                OutputText = $"Error creating PACS client: {ex.Message}";
-                _logger.Error(OutputText);
-
+                SetOutputError($"Error creating PACS client: {ex.Message}", ex);
                 return null;
             }
         }
@@ -584,22 +684,22 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
                 var saveProgress = CreateProgress();
 
-                OutputText = "Сохранение в БД ...";
+                SetOutputInfo("Сохранение в БД ...");
 
                 await Task.Run(() =>
                 {
                     databaseService.SaveToDatabase(ScannedDicomFiles, SaveMode, saveProgress, token);
                 }, token);
 
-                OutputText = $"Завершено! Сохраненно {ScannedDicomFiles.Count} файл(ов).";
+                SetOutputInfo($"Завершено! Сохраненно {ScannedDicomFiles.Count} файл(ов).");
             }
             catch (OperationCanceledException)
             {
-                OutputText = "Сохранение было отменено.";
+                SetOutputError("Сохранение было отменено.");
             }
             catch (Exception ex)
             {
-                OutputText = $"Ошибка парсинга файлов {ScannedDicomFiles.Count}: {ex.Message}";
+                SetOutputError($"Ошибка парсинга файлов {ScannedDicomFiles.Count}: {ex.Message}", ex);
             }
             finally
             {
@@ -617,7 +717,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
             PreviewPatients = new();
             ScannedDicomFiles = new();
-            OutputText = $"Предварительный просмотр очищен.";
+            SetOutputInfo($"Предварительный просмотр очищен.");
             OnPropertyChanged(nameof(HasPreviewData));
         }
 
@@ -626,35 +726,103 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         {
             if (string.IsNullOrWhiteSpace(MainPacsSource.PacsHost) || string.IsNullOrWhiteSpace(MainPacsSource.PacsPort))
             {
-                OutputText = "Please enter Host or Port.";
+                SetOutputInfo("Please enter Host or Port.");
                 MainPacsSource.EchoStatus = OutputText;
                 return;
             }
 
-            OutputText = "Connecting ...";
+            SetOutputInfo("Connecting ...");
             MainPacsSource.EchoStatus = OutputText;
 
             try
             {
-                var client = CreateClient();
+                var client = CreateClient(MainPacsSource);
 
                 if (client == null)
                 {
-                    OutputText = "Не удается создать клиент PACS.";
+                    SetOutputWarning("Не удается создать клиент PACS.");
                     return;
                 }
 
+                DicomStatus responseStatus = null;
                 var echoRequest = new DicomCEchoRequest();
+
+                echoRequest.OnResponseReceived += (request, response) =>
+                {
+                    responseStatus = response.Status;
+                };
+
                 await client.AddRequestAsync(echoRequest);
                 await client.SendAsync();
 
-                OutputText = $"PacS - [ {MainPacsSource.CalledAe} ] connected successful! ({MainPacsSource.PacsHost} : {MainPacsSource.PacsPort})";
+                if (responseStatus?.State == DicomState.Success)
+                {
+                    SetOutputInfo($"PacS - [ {client.CalledAe} ] connected successful! ({client.Host} : {client.Port})");
+                    await SaveConfigAsync();
+                }
+                else
+                {
+                    SetOutputWarning($"PACS вернул статус: {responseStatus}");
+                }
+
                 MainPacsSource.EchoStatus = OutputText;
             }
             catch (Exception ex)
             {
-                OutputText = $"error: {ex.Message}";
+                SetOutputError($"error: {ex.Message}", ex);
                 MainPacsSource.EchoStatus = OutputText;
+            }
+        }
+
+        [RelayCommand]
+        public async Task EchoAdditionalPacsAsync(PacsSource pacs)
+        {
+            if (string.IsNullOrWhiteSpace(pacs.PacsHost) || string.IsNullOrWhiteSpace(pacs.PacsPort))
+            {
+                SetOutputInfo("Please enter Host or Port.");
+                pacs.EchoStatus = OutputText;
+                return;
+            }
+
+            try
+            {
+                var client = CreateClient(pacs);
+
+                if (client == null)
+                {
+                    SetOutputWarning("Не удается создать клиент PACS.");
+                    return;
+                }
+
+                DicomStatus responseStatus = null;
+                var echoRequest = new DicomCEchoRequest();
+
+                echoRequest.OnResponseReceived += (request, response) =>
+                {
+                    responseStatus = response.Status;
+                };
+
+                await client.AddRequestAsync(echoRequest);
+                await client.SendAsync();
+
+                if (responseStatus?.State == DicomState.Success)
+                {
+                    SetOutputInfo($"PacS - [ {pacs.CalledAe} ] connected successful! ({pacs.PacsHost} : {pacs.PacsPort})");
+                    EchoStatus = OutputText;
+                    await SaveConfigAsync();
+                }
+                else
+                {
+                    SetOutputWarning($"PACS вернул статус: {responseStatus}");
+                    EchoStatus = OutputText;
+                }
+
+                pacs.EchoStatus = OutputText;
+            }
+            catch (Exception ex)
+            {
+                SetOutputError($"error: {ex.Message}", ex);
+                EchoStatus = OutputText;
             }
         }
 
@@ -701,6 +869,14 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             return _cancellationTokenSource.Token;
         }
 
+        private CancellationTokenSource CreateCancellationTokenAnimation()
+        {
+            _busyAnimationCts?.Dispose();
+
+            _busyAnimationCts = new CancellationTokenSource();
+            return _busyAnimationCts;
+        }
+
         private void StartBusy(string message = "Загрузка ...", bool percentShow = true)
         {
             BusyMessage = message;
@@ -708,6 +884,13 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             IsBusy = true;
             CanCancel = IsBusy;
             PercentShow = percentShow;
+        }
+
+        private void SetBusyState(string message, bool percentShow, int progress = 0)
+        {
+            BusyMessage = message;
+            PercentShow = percentShow;
+            CurrentProgress = progress;
         }
 
         private void StopBusy()
@@ -718,6 +901,97 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             CanCancel = IsBusy;
             CurrentProgress = 0;
             OnPropertyChanged(nameof(HasPreviewData));
+        }
+
+        private void SetBusyInfo(string message)
+        {
+            BusyMessage = message;
+            _logger.Info(BusyMessage);
+        }
+
+        private void SetBusyError(string message, Exception? ex = null)
+        {
+            BusyMessage = message;
+            _logger.Error(ex, BusyMessage);
+        }
+
+        private void SetBusyWarning(string message, Exception? ex = null)
+        {
+            BusyMessage = message;
+            _logger.Warn(ex, BusyMessage);
+        }
+
+        private void SetOutputInfo(string message)
+        {
+            OutputText = message;
+            _logger.Info(OutputText);
+        }
+
+        private void SetOutputError(string message, Exception? ex = null)
+        {
+            OutputText = message;
+            _logger.Error(ex, OutputText);
+        }
+
+        private void SetOutputWarning(string message, Exception? ex = null)
+        {
+            OutputText = message;
+            _logger.Warn(ex, OutputText);
+        }
+
+        public string GetDisplayName(PacsSource pacs)
+        {
+            if (pacs == null)
+                return string.Empty;
+
+            return $"{pacs.Name}-[ {pacs.CallingAe} ]";
+        }
+
+        private async Task SaveConfigAsync()
+        {
+            var config = new AppConfig();
+
+            config.Sources.Folders.Add(new FolderConfig
+            {
+                Path = MainFolderSource.FolderPath,
+                IsEnabled = MainFolderSource.IsEnabled
+            });
+
+            foreach (var folder in AdditionalFolderSources)
+            {
+                config.Sources.Folders.Add(new FolderConfig
+                {
+                    Path = folder.FolderPath,
+                    IsEnabled = folder.IsEnabled
+                });
+            }
+
+            config.Sources.Pacs.Add(new PacsConfig
+            {
+                Name = MainPacsSource.Name,
+                CallingAe = MainPacsSource.CallingAe,
+                PacsHost = MainPacsSource.PacsHost,
+                PacsPort = MainPacsSource.PacsPort,
+                CalledAe = MainPacsSource.CalledAe,
+                IsEnabled = MainPacsSource.IsEnabled,
+                LoadingMode = MainPacsSource.LoadingMode
+            });
+
+            foreach (var pacs in AdditionalPacsSources)
+            {
+                config.Sources.Pacs.Add(new PacsConfig
+                {
+                    Name = pacs.Name,
+                    CallingAe = pacs.CallingAe,
+                    PacsHost = pacs.PacsHost,
+                    PacsPort = pacs.PacsPort,
+                    CalledAe = pacs.CalledAe,
+                    IsEnabled = pacs.IsEnabled,
+                    LoadingMode = pacs.LoadingMode
+                });
+            }
+
+            await _appConfigService.SaveAsync(config);
         }
 
         private string FormatTimeSpan(TimeSpan time)
@@ -748,6 +1022,41 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
                 _ => string.Empty
             };
+        }
+
+        private void StartBusyAnimation(string message, CancellationTokenSource token)
+        {
+            _ = Task.Run(async () =>
+            {
+                var dots = 0;
+
+                try
+                {
+                    while (!token.IsCancellationRequested)
+                    {
+                        var suffix = new string('.', dots);
+
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            BusyMessage = $"{message}{suffix}";
+                        });
+
+                        dots = (dots + 1) % 4;
+
+                        await Task.Delay(500, token.Token);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }, token.Token);
+        }
+
+        private void StopBusyAnimation()
+        {
+            _busyAnimationCts?.Cancel();
+            _busyAnimationCts?.Dispose();
+            _busyAnimationCts = null;
         }
     }
 }
