@@ -713,15 +713,6 @@
                             Text="{Binding CurrentProgress, StringFormat='{}{0}%'}"
                             Visibility="{Binding PercentShow, Converter={StaticResource BoolToVisibilityConverter}}" />
 
-                        <TextBlock
-                            Margin="0,30,0,0"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            FontSize="18"
-                            Foreground="Black"
-                            Text="{Binding BusyMessage}" />
-
-
                         <Canvas
                             x:Name="PaperAnimationCanvas"
                             Width="260"
@@ -929,6 +920,13 @@
 
                         </Canvas>
 
+                        <TextBlock
+                            Margin="0,50,0,0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            FontSize="18"
+                            Foreground="Black"
+                            Text="{Binding BusyMessage}" />
 
                     </StackPanel>
                 </Border>
