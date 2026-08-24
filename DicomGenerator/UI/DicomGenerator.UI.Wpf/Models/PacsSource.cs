@@ -1,10 +1,5 @@
-﻿using System;
-using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using DicomGenerator.Core.Enums;
-using FellowOakDicom.Network;
-using FellowOakDicom.Network.Client;
 
 namespace DicomGenerator.UI.Wpf.Models
 {

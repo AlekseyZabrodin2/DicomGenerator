@@ -110,7 +110,7 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
 
                 var percent = (int)((double)processed / studies.Count * 100);
                 progress?.Report((percent, $"Сканирование исследований ... {processed}/{studies.Count}"+
-                $"\nОсталось времени примерно: {estimator.FormatTimeSpan(remainingTime)}"));
+                $"\nДо завершения: {estimator.FormatTimeSpan(remainingTime)}"));
             }
 
             return results;
@@ -280,7 +280,7 @@ namespace DicomGenerator.UI.Wpf.LocalPacsModules
             SeriesCount = 0;
             ImagesCount = 0;
 
-            progress?.Report((0, "Сканирование ..."));
+            //progress?.Report((0, "Сканирование ..."));
 
             var datasets = await LoadAllImagesAsync(client, progress, cancellationToken);
 
