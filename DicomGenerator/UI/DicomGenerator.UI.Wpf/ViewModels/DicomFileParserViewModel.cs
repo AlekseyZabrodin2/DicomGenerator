@@ -35,7 +35,8 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         private string _databasePath = string.Empty;
         private string _errorMessage = string.Empty;
         private CancellationTokenSource _cancellationTokenSource;
-        private CancellationTokenSource? _busyAnimationCts;
+        private CancellationTokenSource? _busyAnimationCts; 
+        private CancellationTokenSource _elapsedTimerCts;
         private PacsLoadingMode _loadingMode;
         private bool _isFolderScanSource;
         private bool _isPacsScanSource;
@@ -191,8 +192,8 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             InitialiseScanMode();
             UpdateLoadingModeDescription();
 
-            RemoveAdditionalFolderCommand = new RelayCommand<FolderSource>(RemoveAdditionalFolder);
-            RemoveAdditionalPacsCommand = new RelayCommand<PacsSource>(RemoveAdditionalPacs);
+            RemoveAdditionalFolderCommand = new AsyncRelayCommand<FolderSource>(RemoveAdditionalFolder);
+            RemoveAdditionalPacsCommand = new AsyncRelayCommand<PacsSource>(RemoveAdditionalPacs);
 
             AdditionalFolderSources.CollectionChanged += (s, e) => UpdateAllScanSource();
             AdditionalPacsSources.CollectionChanged += (s, e) => UpdateAllScanSource();
@@ -234,6 +235,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         {
             var config = await _appConfigService.LoadAsync();
 
+            DatabasePath = config.Sources.DataBasePath;
             LoadFolderSources(config.Sources.Folders);
             LoadPacsSources(config.Sources.Pacs);
         }
@@ -333,13 +335,14 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             await SaveConfigAsync();
         }
 
-        private void RemoveAdditionalFolder(FolderSource item)
+        private async Task RemoveAdditionalFolder(FolderSource item)
         {
             AdditionalFolderSources.Remove(item);
+            await SaveConfigAsync();
         }        
 
         [RelayCommand]
-        private void BrowseDatabase()
+        private async Task BrowseDatabase()
         {
             var dialog = new OpenFileDialog
             {
@@ -353,10 +356,12 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             {
                 DatabasePath = dialog.FileName;
             }
+
+            await SaveConfigAsync();
         }
 
         [RelayCommand]
-        public void AddAdditionalPacs()
+        public async Task AddAdditionalPacs()
         {
             var newPacs = new PacsSource();
 
@@ -366,11 +371,13 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                     UpdateAllScanSource();
             };
             AdditionalPacsSources.Add(newPacs);
+            await SaveConfigAsync();
         }
 
-        private void RemoveAdditionalPacs(PacsSource item)
+        private async Task RemoveAdditionalPacs(PacsSource item)
         {
             AdditionalPacsSources.Remove(item);
+            await SaveConfigAsync();
         }
 
         private DicomDatabaseService CreateDatabaseService()
@@ -451,7 +458,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                     try
                     {
                         StartBusyAnimation("Получение данных из Архива ");
-
+                        
                         var results = await _scanner.ScanFolderAsync(folder.FolderPath, progress, token);
                         allResults.AddRange(results);
                     }
@@ -484,18 +491,19 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                     var progress = new Progress<(int Percent, string Message)>(p =>
                     {
                         CurrentProgress = p.Percent;
-                        BusyMessage = $"{displayName} : {p.Message}";
+                        BusyMessage = $"{displayName} {p.Message}";
                     });
 
                     try
                     {
                         StartBusyAnimation("Получение данных из PACS ");
 
-                        var results = await LoadFromPacsAsync(client, LoadingMode, progress, token, animationToken);
+                        var results = await LoadFromPacsAsync(displayName, client, LoadingMode, progress, token, animationToken);
                         allResults.AddRange(results);
                     }
                     finally
                     {
+                        StopElapsedTimer();
                         StopBusyAnimation();
                     }
                 }
@@ -582,6 +590,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         }
 
         private async Task<List<DicomFileInfo>> LoadFromPacsAsync(
+            string displayName,
             IDicomClient client,
             PacsLoadingMode loadingMode,
             IProgress<(int Percent, string Message)> progress,
@@ -591,6 +600,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             switch (loadingMode)
             {
                 case PacsLoadingMode.Fast:
+                    StartElapsedTimer(displayName);
                     var fastResult = await _localPacsSource.LoadDicomMetadataFastAsync(
                         client, progress, token, animationToken);
                     return fastResult;
@@ -602,11 +612,12 @@ namespace DicomGenerator.UI.Wpf.ViewModels
 
                 default:
                     return await LoadWithFallbackAsync(
-                        client, progress, token, animationToken);
+                        displayName, client, progress, token, animationToken);
             }
         }
 
         private async Task<List<DicomFileInfo>> LoadWithFallbackAsync(
+            string displayName,
             IDicomClient client,
             IProgress<(int Percent, string Message)> progress,
             CancellationToken token,
@@ -614,6 +625,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         {
             try
             {
+                StartElapsedTimer(displayName);
                 return await _localPacsSource.LoadDicomMetadataFastAsync(client, progress, token, animationToken);
             }
             catch (DicomNetworkException ex)
@@ -967,6 +979,8 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         {
             var config = new AppConfig();
 
+            config.Sources.DataBasePath = DatabasePath;
+
             config.Sources.Folders.Add(new FolderConfig
             {
                 Path = MainFolderSource.FolderPath,
@@ -1053,6 +1067,43 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             _busyAnimationCts?.Cancel();
             _busyAnimationCts?.Dispose();
             _busyAnimationCts = null;
+        }
+
+        private void StartElapsedTimer(string displayName)
+        {
+            _elapsedTimerCts?.Cancel();
+            _elapsedTimerCts?.Dispose();
+
+            _elapsedTimerCts = new CancellationTokenSource();
+
+            _ = UpdateElapsedTimerAsync(displayName, _elapsedTimerCts.Token);
+        }
+
+        private async Task UpdateElapsedTimerAsync(
+            string displayName,
+            CancellationToken cancellationToken)
+        {
+            var stopwatch = Stopwatch.StartNew();
+
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    BusyMessage = $"{displayName} Получение данных ... {stopwatch.Elapsed:mm\\:ss}";
+
+                    await Task.Delay(1000, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        private void StopElapsedTimer()
+        {
+            _elapsedTimerCts?.Cancel();
+            _elapsedTimerCts?.Dispose();
+            _elapsedTimerCts = null;
         }
     }
 }
