@@ -204,7 +204,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
         {
             MainPacsSource = new ()
             {
-                Name = "PACS",
+                Name = "Pacs",
                 PacsHost = "127.0.0.1",
                 PacsPort = "4242",
                 CallingAe = "UNIEXPERT",
@@ -455,17 +455,10 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                         BusyMessage = $"Архив: сканирование - {folder.FolderPath} {p.Message}";
                     });
 
-                    try
-                    {
-                        StartBusyAnimation("Получение данных из Архива ");
-                        
-                        var results = await _scanner.ScanFolderAsync(folder.FolderPath, progress, token);
-                        allResults.AddRange(results);
-                    }
-                    finally
-                    {
-                        StopBusyAnimation();
-                    }
+                    StartBusyAnimation("Получение данных из Архива ");
+
+                    var results = await _scanner.ScanFolderAsync(folder.FolderPath, progress, token);
+                    allResults.AddRange(results);
                 }
 
                 foreach (var pacs in activePacs)
@@ -504,7 +497,6 @@ namespace DicomGenerator.UI.Wpf.ViewModels
                     finally
                     {
                         StopElapsedTimer();
-                        StopBusyAnimation();
                     }
                 }
                 
@@ -522,6 +514,7 @@ namespace DicomGenerator.UI.Wpf.ViewModels
             }
             finally
             {
+                StopBusyAnimation();
                 ScannedDicomFiles = allResults;
                 PreviewPatients = BuildPreviewPatients(allResults);
 
