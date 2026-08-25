@@ -130,7 +130,7 @@ namespace DicomGenerator.Core.DicomFileParser
                     progress?.Report((
                         percent,
                         $"\nСканирование файлов ... {parsedCount}/{files.Length}" +
-                        $"\nОсталось времени примерно: {estimator.FormatTimeSpan(remainingTime)}"));
+                        $"\nДо завершения: {estimator.FormatTimeSpan(remainingTime)}"));
                 }
             }
 
