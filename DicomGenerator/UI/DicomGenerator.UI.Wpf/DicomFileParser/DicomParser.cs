@@ -20,7 +20,7 @@ namespace DicomGenerator.Core.DicomFileParser
 
                 var patient = new PatientLiteDb()
                 {
-                    Id = ObjectId.NewObjectId().ToString(),
+                    Id = null,
                     PatientID = dataset.GetStringValue(DicomTag.PatientID),
                     LastName = ParseDicomName(dataset.GetStringValue(DicomTag.PatientName, string.Empty)).lastName,
                     FirstName = ParseDicomName(dataset.GetStringValue(DicomTag.PatientName, string.Empty)).firstName,
@@ -40,7 +40,6 @@ namespace DicomGenerator.Core.DicomFileParser
                     Id = ObjectId.NewObjectId(),
                     StudyInstanceUid = dataset.GetStringValue(DicomTag.StudyInstanceUID, string.Empty),
                     StudyId = dataset.GetStringValue(DicomTag.StudyID, string.Empty),
-                    PatientId = new ObjectId(patient.Id),
                     SnapshotLastName = patient.LastName,
                     SnapshotFirstName = patient.FirstName,
                     SnapshotPatronymic = patient.MiddleName,
@@ -96,7 +95,7 @@ namespace DicomGenerator.Core.DicomFileParser
             {
                 var patient = new PatientLiteDb()
                 {
-                    Id = ObjectId.NewObjectId().ToString(),
+                    Id = null,
                     PatientID = dataset.GetStringValue(DicomTag.PatientID),
                     LastName = ParseDicomName(dataset.GetStringValue(DicomTag.PatientName, string.Empty)).lastName,
                     FirstName = ParseDicomName(dataset.GetStringValue(DicomTag.PatientName, string.Empty)).firstName,
@@ -117,7 +116,6 @@ namespace DicomGenerator.Core.DicomFileParser
                     Id = ObjectId.NewObjectId(),
                     StudyInstanceUid = dataset.GetStringValue(DicomTag.StudyInstanceUID, string.Empty),
                     StudyId = dataset.GetStringValue(DicomTag.StudyID, string.Empty),
-                    PatientId = new ObjectId(patient.Id),
                     SnapshotLastName = patient.LastName,
                     SnapshotFirstName = patient.FirstName,
                     SnapshotPatronymic = patient.MiddleName,
@@ -220,28 +218,61 @@ namespace DicomGenerator.Core.DicomFileParser
             if (string.IsNullOrWhiteSpace(date))
                 return null;
 
-            if (DateTime.TryParse($"{date} {time}", out var result))
-                return result;
+            time = time?.Trim() ?? string.Empty;
 
-            if (DateTime.TryParse(date, out var resultDate))
-                return resultDate;
+            var value = string.IsNullOrWhiteSpace(time)
+                ? date
+                : $"{date} {time}";
+
+            if (DateTime.TryParseExact(
+                value,
+                new[]
+                {
+                    "yyyyMMdd HHmmss",
+                    "yyyyMMdd HHmmss.FFFFFF",
+                    "yyyyMMdd"
+                },
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var result))
+            {
+                return result;
+            }
 
             return null;
         }
 
         private DateTime? GetSeriesDateTime(DicomDataset dataset)
         {
-            var date = dataset.GetStringValue(DicomTag.SeriesDate, string.Empty);
-            var time = dataset.GetStringValue(DicomTag.SeriesTime, string.Empty);
+            var date = dataset.GetStringValue(DicomTag.SeriesDate, string.Empty)?.Trim();
+            var time = dataset.GetStringValue(DicomTag.SeriesTime, string.Empty)?.Trim();
+
+            if (string.IsNullOrWhiteSpace(date))
+                date = dataset.GetStringValue(DicomTag.StudyDate, string.Empty)?.Trim();
 
             if (string.IsNullOrWhiteSpace(date))
                 return null;
 
-            if (DateTime.TryParse($"{date} {time}", out var result))
-                return result;
+            time = time?.Trim() ?? string.Empty;
 
-            if (DateTime.TryParse(date, out var resultDate))
-                return resultDate;
+            var value = string.IsNullOrWhiteSpace(time)
+                ? date
+                : $"{date} {time}";
+
+            if (DateTime.TryParseExact(
+                value,
+                new[]
+                {
+                    "yyyyMMdd HHmmss",
+                    "yyyyMMdd HHmmss.FFFFFF",
+                    "yyyyMMdd"
+                },
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var result))
+            {
+                return result;
+            }
 
             return null;
         }
