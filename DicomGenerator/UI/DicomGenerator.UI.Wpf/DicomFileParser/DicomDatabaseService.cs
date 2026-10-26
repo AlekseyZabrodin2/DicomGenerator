@@ -6,7 +6,7 @@ using DicomGenerator.Core.Enums;
 using DicomGenerator.Core.Extensions;
 using DicomGenerator.Core.LiteDbModels;
 using DicomGenerator.UI.Wpf.LiteDbCore;
-using Windows.UI;
+using LiteDB;
 
 namespace DicomGenerator.UI.Wpf.DicomFileParser
 {    
@@ -56,7 +56,9 @@ namespace DicomGenerator.UI.Wpf.DicomFileParser
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                SavePatient(patientGroup.First().Patient, patientsToInsert, patientIds);
+                var patient = patientGroup.First().Patient;
+
+                var patientDbId = SavePatient(patient, patientsToInsert, patientIds);
 
                 if(mode == DatabaseSaveMode.PatientsOnly)
                 {
@@ -71,7 +73,11 @@ namespace DicomGenerator.UI.Wpf.DicomFileParser
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    SaveStudy(studyGroup.First().Study, studiesToInsert, studyUids);
+                    var study = studyGroup.First().Study;
+
+                    study.PatientId = patientDbId;
+
+                    SaveStudy(study, studiesToInsert, studyUids);
 
                     var series = studyGroup
                         .GroupBy(x => x.Series.SeriesInstanceUid);
@@ -113,10 +119,10 @@ namespace DicomGenerator.UI.Wpf.DicomFileParser
                 _dbContext.Images.InsertBulk(imagesToInsert);
         }
 
-        private void SavePatient(PatientLiteDb patient, List<LitePatient> patientsToInsert, HashSet<string> patientIds)
+        private ObjectId? SavePatient(PatientLiteDb patient, List<LitePatient> patientsToInsert, HashSet<string> patientIds)
         {
             if (patient == null || string.IsNullOrWhiteSpace(patient.PatientID))
-                return;
+                return null;
 
             var exist = _dbContext.Patients.FindOne(x => x.PatientId == patient.PatientID);
 
@@ -124,14 +130,26 @@ namespace DicomGenerator.UI.Wpf.DicomFileParser
             {
                 patient.Id = exist.Id.ToString();
                 _dbContext.Patients.Update(patient.ToLitePatient());
+
+                return exist.Id;
             }
             else
             {
                 if (patientIds.Add(patient.PatientID))
                 {
-                    patientsToInsert.Add(patient.ToLitePatient());
+                    var litePatient = patient.ToLitePatient();
+
+                    patient.Id = litePatient.Id.ToString();
+
+                    patientsToInsert.Add(litePatient);
+
+                    return litePatient.Id;
                 }
             }
+
+            var addedPatient = patientsToInsert.FirstOrDefault(x => x.PatientId == patient.PatientID);
+
+            return addedPatient?.Id;
         }
 
         private void SaveStudy(StudyLiteDb study, List<LiteStudy> studiesToInsert, HashSet<string> studyUids)
